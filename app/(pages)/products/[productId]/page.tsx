@@ -35,6 +35,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Loading } from "@/components/Loading/Loading";
+import Link from "next/link";
 
 export default function ProductDetails() {
   let { productId } = useParams();
@@ -48,8 +49,11 @@ export default function ProductDetails() {
 
   const [totalproduct, setTotalproduct] = useState("");
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> cebe80e (New Update)
   const pages = [];
   for (let i = 1; i <= totalPages; i++) {
     pages.push(i);
@@ -97,7 +101,7 @@ export default function ProductDetails() {
         <Loading />
       ) : (
         <>
-          {" "}
+
           <div className="container mx-auto flex gap-1 text-xl pt-5">
             {totalproduct}
             <h1>Products </h1>
@@ -108,7 +112,8 @@ export default function ProductDetails() {
                 className="relative   pt-0 cursor-pointer "
                 key={product.id}
               >
-                {product.images[0]?.src && (
+                <Link href={'/products/detail/'+product.id}>
+                                {product.images[0]?.src && (
                   <Image
                     src={product.images[0].src}
                     alt={product.name}
@@ -141,12 +146,17 @@ export default function ProductDetails() {
                     </div>
                   </div>
                 </CardHeader>
+                
+                </Link>
+
+
                 <Button className="text-white bg-[#0497D8] p-2 m-2 rounded-2xl">
                   Add Cart
                 </Button>
               </Card>
             ))}
           </div>
+<<<<<<< HEAD
           
 
       <div className="grid grid-cols-4 gap-7 p-5 container mx-auto">
@@ -191,6 +201,9 @@ export default function ProductDetails() {
       </div>
 
 
+=======
+
+>>>>>>> cebe80e (New Update)
       <Pagination>
         <PaginationContent>
           <PaginationItem>
@@ -215,10 +228,13 @@ export default function ProductDetails() {
 
           <PaginationItem>{/* <PaginationEllipsis />   */}</PaginationItem>
 
+<<<<<<< HEAD
           <PaginationItem>
         
           </PaginationItem>
 
+=======
+>>>>>>> cebe80e (New Update)
           <PaginationItem>
             <PaginationNext
               href={`?page=${page + 1}`}
@@ -233,10 +249,13 @@ export default function ProductDetails() {
         </>
       )}
 
+<<<<<<< HEAD
 
 
       
 
+=======
+>>>>>>> cebe80e (New Update)
     </>
   );
 }

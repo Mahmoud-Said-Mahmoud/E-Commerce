@@ -2,15 +2,23 @@
 
 import { Switch } from "@/components/ui/switch";
 
+<<<<<<< HEAD
+=======
+import { Button } from "@/components/ui/button";
+>>>>>>> cebe80e (New Update)
 import {
   NativeSelect,
   NativeSelectOptGroup,
   NativeSelectOption,
 } from "@/components/ui/native-select";
+<<<<<<< HEAD
 
 import { Button } from "@/components/ui/button"
 
 
+=======
+
+>>>>>>> cebe80e (New Update)
 
 import { ShoppingCart, Search, User, MapPinHouse, Heart } from "lucide-react";
 import {
@@ -45,12 +53,16 @@ import Link from "next/link";
 
 export default function Navbar() {
 
+<<<<<<< HEAD
 const pathName=usePathname();
+=======
+  const pathName = usePathname();
+>>>>>>> cebe80e (New Update)
 
   const [isEnglish, setIsEnglish] = useState(true);
   return (
     <>
-      <div className="shadow-lg sticky top-0 z-50 bg-white dark:bg-black ">
+      <div className="shadow-lg  top-0 z-50 bg-white dark:bg-black ">
         <div className="container mx-auto py-2">
           <nav className="grid  grid-cols-3 items-center">
             <div className=" grid grid-cols-2 gap-5 ">
@@ -61,6 +73,10 @@ const pathName=usePathname();
                 width={200}
                 height={200}
               /></Link>
+<<<<<<< HEAD
+=======
+             
+>>>>>>> cebe80e (New Update)
 
               <Dialog>
                 <form>
@@ -131,7 +147,19 @@ const pathName=usePathname();
                   alt="ar"
                 />
                 )}
+<<<<<<< HEAD
 
+=======
+                    {!isEnglish && (
+
+                  <Image
+                    src="/Image/ar-flag.webp"
+                    height={20}
+                    width={20}
+                    alt="ar"
+                  />
+                )}
+>>>>>>> cebe80e (New Update)
               </div>
               <Heart className="text-[#0497D8]" />
               <ShoppingCart className="text-[#0497D8]" />
@@ -148,7 +176,10 @@ const pathName=usePathname();
                   <DialogContent className="sm:max-w-[25%]">
                     <DialogHeader>
                       <DialogTitle>Login</DialogTitle>
+<<<<<<< HEAD
 
+=======
+>>>>>>> cebe80e (New Update)
                       <DialogDescription>
                         Welcome 👋
                       </DialogDescription>
@@ -165,6 +196,7 @@ const pathName=usePathname();
                       </Field>
                       <Field>
                         <Label htmlFor="Password">Password</Label>
+<<<<<<< HEAD
 
                         <Input id="Password" name="Password" type="password" />
                       </Field>
@@ -186,10 +218,39 @@ const pathName=usePathname();
         </div>
   
 
+=======
+
+                        <Input
+                          id="Password"
+                          name="Password"
+                          type="password"
+                        />
+                      </Field>
+
+                      <Button type="submit" className='bg-[#0497DB]'>Login</Button>
+                    </FieldGroup>
+                    <DialogFooter>
+                      <Button type="submit" className='bg-[#0497DB]'>SignUp</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                  
+                </form>
+              </Dialog>
+            </div>
+
+          </nav>
+
+        </div>
+
+>>>>>>> cebe80e (New Update)
         <div className="container mx-auto py-2 pt-3 flex gap-3">
           <NavigationMenu className="border-r-[1.5px] pr-2">
             <NavigationMenuList>
               <NavigationMenuItem>
+<<<<<<< HEAD
+=======
+
+>>>>>>> cebe80e (New Update)
                 <NavigationMenuTrigger><Link href={"/products/" + 66}>Mobiles</Link></NavigationMenuTrigger>
                 <NavigationMenuContent className="flex  flex-col item-center justify-around ">
                   <NavigationMenuLink>Smart Phones</NavigationMenuLink>
@@ -275,6 +336,10 @@ const pathName=usePathname();
                   <NavigationMenuLink>Smart Devices</NavigationMenuLink>
                   <NavigationMenuLink>Batteries</NavigationMenuLink>
                   <NavigationMenuLink>Power</NavigationMenuLink>
+<<<<<<< HEAD
+=======
+
+>>>>>>> cebe80e (New Update)
                 </NavigationMenuContent>
               </NavigationMenuItem>
             </NavigationMenuList>
@@ -308,7 +373,10 @@ const pathName=usePathname();
                   </NavigationMenu>
                   <NavigationMenuLink>Monitors</NavigationMenuLink>
 
+<<<<<<< HEAD
        
+=======
+>>>>>>> cebe80e (New Update)
                 </NavigationMenuContent>
               </NavigationMenuItem>
             </NavigationMenuList>
@@ -333,7 +401,10 @@ const pathName=usePathname();
           <NavigationMenu className="border-r-[1.5px] pr-2">
             <NavigationMenuList>
               <NavigationMenuItem>
+<<<<<<< HEAD
 
+=======
+>>>>>>> cebe80e (New Update)
                 <NavigationMenuTrigger><Link href={"/products/" + 71}>Network</Link></NavigationMenuTrigger>
                 <NavigationMenuContent className="flex flex-col  item-center justify-around ">
                   <NavigationMenuLink>Gaming CD</NavigationMenuLink>
@@ -370,6 +441,10 @@ const pathName=usePathname();
             <NavigationMenuList>
               <NavigationMenuItem>
                 <NavigationMenuLink render={<Link  href={"/products/"+17}>Tools</Link>} />
+<<<<<<< HEAD
+=======
+
+>>>>>>> cebe80e (New Update)
               </NavigationMenuItem>
             </NavigationMenuList>
           </NavigationMenu>

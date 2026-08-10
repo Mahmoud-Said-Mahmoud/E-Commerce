@@ -13,10 +13,15 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "i-techegypt.com",
+<<<<<<< HEAD
       }
    
     ],
   },
 };
+=======
+  }]
+}};
+>>>>>>> cebe80e (New Update)
 
 export default nextConfig;

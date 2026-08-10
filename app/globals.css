@@ -5,7 +5,10 @@
 @custom-variant dark (&:is(.dark *));
 @theme {
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> cebe80e (New Update)
   --animate-vertical-slide: vertical-slide 6s infinite;
 
 

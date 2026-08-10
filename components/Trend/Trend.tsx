@@ -47,8 +47,12 @@ export default function Trend() {
         <h2 className="text-lg font-extrabold">Best Seller</h2>
 
         <Tabs defaultValue="mobile">
+<<<<<<< HEAD
 =======
     
+=======
+
+>>>>>>> cebe80e (New Update)
           <TabsList className="gap-5 ">
             <TabsTrigger
               value="mobile"
