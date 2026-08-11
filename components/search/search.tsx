@@ -84,14 +84,28 @@ export default function NewSearch() {
       {/* Results */}
 
       {open && (
-        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border bg-white shadow-xl">
+        <div
+          className="
+      absolute left-0 right-0 top-[calc(100%+8px)]
+      z-50
+      grid grid-cols-3 gap-5
+      w-200
+      max-h-[70vh]
+      overflow-y-auto
+      overscroll-contain
+      rounded-xl border bg-white shadow-xl
+    "
+        >
           {loading ? (
-            <div className="p-4 text-sm text-gray-500">Searching...</div>
+            <div className="col-span-3 p-4 text-sm text-gray-500">
+              Searching...
+            </div>
           ) : products.length === 0 ? (
-            <div className="p-4 text-sm text-gray-500">No products found</div>
+            <div className="col-span-3 p-4 text-sm text-gray-500">
+              No products found
+            </div>
           ) : (
             <>
-            {/* {console.log(products.products)} */}
               {products.products.map((product) => (
                 <Link
                   key={product.id}
@@ -99,8 +113,6 @@ export default function NewSearch() {
                   onClick={() => setOpen(false)}
                   className="flex gap-3 border-b p-3 transition hover:bg-gray-50"
                 >
-                  {/* Image */}
-
                   <div className="relative h-14 w-14 shrink-0">
                     {product.images?.[0]?.src && (
                       <Image
@@ -111,8 +123,6 @@ export default function NewSearch() {
                       />
                     )}
                   </div>
-
-                  {/* Information */}
 
                   <div className="min-w-0">
                     <p className="line-clamp-2 text-sm font-medium">
@@ -132,12 +142,16 @@ export default function NewSearch() {
                 </Link>
               ))}
 
-              {/* All results */}
-
               <Link
                 href={`/products/search?q=${encodeURIComponent(query.trim())}`}
                 onClick={() => setOpen(false)}
-                className="block border-t p-3 text-center text-sm font-medium text-[#0497D8] hover:bg-gray-50"
+                className="
+            col-span-3
+            border-t p-3
+            text-center text-sm font-medium
+            text-[#0497D8]
+            hover:bg-gray-50
+          "
               >
                 See all results for "{query}"
               </Link>

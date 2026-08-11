@@ -30,6 +30,7 @@ import type { ProductI } from "@/interface/product";
 
 import { LuShieldCheck } from "react-icons/lu";
 import { FaShippingFast } from "react-icons/fa";
+import Link from "next/link";
 
 /* =========================================================
    TYPES
@@ -326,6 +327,7 @@ function ProductCarousel({
                 lg:basis-1/5
               "
             >
+              <Link href={'/products/detail/'+product.id}>
               <Card
                 className="
                   relative
@@ -413,6 +415,7 @@ function ProductCarousel({
                   </CardDescription>
                 </CardHeader>
               </Card>
+              </Link>
             </CarouselItem>
           );
         })}

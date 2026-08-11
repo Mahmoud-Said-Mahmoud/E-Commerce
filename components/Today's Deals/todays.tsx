@@ -146,12 +146,7 @@ export default function Todays() {
               </h3>
             </div>
 
-            <Link
-              href="/products"
-              className="text-sm font-medium text-[#0497D8]"
-            >
-              View all
-            </Link>
+          
           </div>
 
           {loading ? (
@@ -191,7 +186,7 @@ export default function Todays() {
                       key={product.id}
                       className="basis-1/2 pl-4 lg:basis-1/4"
                     >
-                      <Link href={`/detail/${product.slug}`}>
+                      <Link href={`/products/detail/${product.id}`}>
                         <Card className="group h-full overflow-hidden border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                           <div className="relative flex h-56 items-center justify-center overflow-hidden bg-gray-50">
                             <Image

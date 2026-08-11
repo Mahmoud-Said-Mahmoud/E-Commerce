@@ -414,15 +414,15 @@ export default function Navbar() {
 
             <Link
               href="/products?brand=1922"
-              className="ml-auto shrink-0 px-3 py-1"
+              className="px-3 py-1"
             >
               <div className="flex h-10 items-center rounded-lg bg-[#ec6c0380] px-3 transition hover:opacity-80">
                 <Image
                   src="/Image/cropped-2022logo-small.png"
                   alt="Brand"
-                  width={70}
-                  height={40}
-                  className="h-8 w-auto object-contain"
+                  width={100}
+                  height={100}
+                  className=" w-auto object-contain"
                 />
               </div>
             </Link>
