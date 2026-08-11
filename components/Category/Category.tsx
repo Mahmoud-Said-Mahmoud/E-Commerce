@@ -1,160 +1,143 @@
 import React from "react";
-
-import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import Image from "next/image";
 import Link from "next/link";
 
-export default async function Category() {
+import { Card } from "@/components/ui/card";
 
+interface CategoryItem {
+  id: number;
+  name: string;
+  image: string;
+}
+
+const categories: CategoryItem[] = [
+  {
+    id: 71,
+    name: "Network",
+    image: "/Image/Networki.png",
+  },
+  {
+    id: 54,
+    name: "Laptop & PC",
+    image: "/Image/laptops&mobile.png",
+  },
+  {
+    id: 66,
+    name: "Mobile",
+    image: "/Image/Phone.png",
+  },
+  {
+    id: 111,
+    name: "Monitors",
+    image: "/Image/monitor.png",
+  },
+  {
+    id: 17,
+    name: "Tools",
+    image: "/Image/dril.png",
+  },
+  {
+    id: 2313,
+    name: "Security",
+    image: "/Image/security.png",
+  },
+  {
+    id: 1843,
+    name: "Small Appliances",
+    image: "/Image/small.png",
+  },
+  {
+    id: 131,
+    name: "Accessories",
+    image: "/Image/assecor.png",
+  },
+  {
+    id: 948,
+    name: "Gaming",
+    image: "/Image/control.png",
+  },
+];
+
+export default function Category() {
   return (
-    <div className="container mx-auto py-5">
-      <h2 className="text-lg font-extrabold">Shop by Category</h2>
-      <div className="flex gap-7 items-center justify-center">
-        <div className="text-center">
-          <Link href={"/products/" + 71}>
-            {" "}
-            <Card className="w-30 h-30  p-5 flex justify-center items-center rounded-full hover:scale-105 duration-300 cursor-pointer">
-              <Image
-                src="/Image/Networki.png"
-                alt="Event cover"
-                height={700}
-                width={700}
-                className="object-cover"
-              />
-            </Card>
-          </Link>
+    <section className="container mx-auto px-4 py-6">
+      {/* Header */}
+      <div className="mb-6">
+        <h2 className="text-lg font-extrabold text-gray-900">
+          Shop by Category
+        </h2>
 
-          <p>Network</p>
-        </div>
-        <div className="text-center">
-          <Link href={"/products/" + 54}>
-            {" "}
-            <Card className="w-30 h-30  p-5 flex justify-center items-center rounded-full hover:scale-105 duration-300 cursor-pointer">
-              <Image
-                src="/Image/laptops&mobile.png"
-                alt="Event cover"
-                height={700}
-                width={700}
-                className="object-cover"
-              />
-            </Card>
-          </Link>
-
-          <p>Laptop&PC</p>
-        </div>
-        <div className="text-center">
-          <Link href={"/products/" + 66}>
-            <Card className="w-30 h-30  p-5 flex justify-center items-center rounded-full hover:scale-105 duration-300 cursor-pointer">
-              <Image
-                src="/Image/Phone.png"
-                alt="Event cover"
-                height={700}
-                width={700}
-                className="object-cover"
-              />
-            </Card>
-          </Link>
-
-          <p>Mobile</p>
-        </div>
-        <div className="text-center">
-          <Link href={"/products/" + 111}>
-            <Card className="w-30 h-30  p-5 flex justify-center items-center rounded-full hover:scale-105 duration-300 cursor-pointer">
-              <Image
-                src="/Image/monitor.png"
-                alt="Event cover"
-                height={700}
-                width={700}
-                className="object-cover"
-              />
-            </Card>
-          </Link>
-
-          <p>Monitors</p>
-        </div>
-        <div className="text-center">
-          <Link href={"/products/" + 17}>
-            <Card className="w-30 h-30  p-5 flex justify-center items-center rounded-full hover:scale-105 duration-300 cursor-pointer">
-              <Image
-                src="/Image/dril.png"
-                alt="Event cover"
-                height={700}
-                width={700}
-                className="object-cover"
-              />
-            </Card>
-          </Link>
-
-          <p>Tools</p>
-        </div>
-        <div className="text-center">
-          <Link href={"/products/" + 2313}>
-            <Card className="w-30 h-30  p-5 flex justify-center items-center rounded-full hover:scale-105 duration-300 cursor-pointer">
-              <Image
-                src="/Image/security.png"
-                alt="Event cover"
-                height={700}
-                width={700}
-                className="object-cover"
-              />
-            </Card>
-          </Link>
-
-          <p>Security</p>
-        </div>
-        <div className="text-center">
-          <Link href={"/products/" + 1843}>
-            <Card className="w-30 h-30  p-5 flex justify-center items-center rounded-full hover:scale-105 duration-300 cursor-pointer">
-              <Image
-                src="/Image/small.png"
-                alt="Event cover"
-                height={700}
-                width={700}
-                className="object-cover"
-              />
-            </Card>
-          </Link>
-
-          <p>Small Appliances</p>
-        </div>
-        <div className="text-center">
-          <Link href={"/products/" + 131}>
-            <Card className="w-30 h-30  p-5 flex justify-center items-center rounded-full hover:scale-105 duration-300 cursor-pointer">
-              <Image
-                src="/Image/assecor.png"
-                alt="Event cover"
-                height={700}
-                width={700}
-                className="object-cover"
-              />
-            </Card>
-          </Link>
-
-          <p>Accessories</p>
-        </div>
-        <div className="text-center">
-          <Link href={"/products/" + 948}>
-            <Card className="w-30 h-30  p-5 flex justify-center items-center rounded-full hover:scale-105 duration-300 cursor-pointer">
-              <Image
-                src="/Image/control.png"
-                alt="Event cover"
-                height={700}
-                width={700}
-                className="object-cover"
-              />
-            </Card>
-          </Link>
-
-          <p>Gaming</p>
-        </div>
+        <p className="mt-1 text-sm text-gray-500">
+          Explore our products by category
+        </p>
       </div>
-    </div>
+
+      {/* Categories */}
+      <div className="grid grid-cols-3 gap-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-9">
+        {categories.map((category) => (
+          <Link
+            key={category.id}
+            href={`/products?category=${category.id}`}
+            prefetch={true}
+            className="group flex flex-col items-center"
+          >
+            {/* Category Card */}
+            <Card
+              className="
+                flex
+                h-24
+                w-24
+                items-center
+                justify-center
+                overflow-hidden
+                rounded-full
+                border
+                bg-white
+                p-4
+                transition-all
+                duration-300
+                group-hover:-translate-y-1
+                group-hover:shadow-md
+                sm:h-28
+                sm:w-28
+                sm:p-5
+              "
+            >
+              <Image
+                src={category.image}
+                alt={category.name}
+                width={200}
+                height={200}
+                priority={category.id === 71}
+                className="
+                  h-full
+                  w-full
+                  object-contain
+                  transition-transform
+                  duration-300
+                  group-hover:scale-110
+                "
+              />
+            </Card>
+
+            {/* Category Name */}
+            <p
+              className="
+                mt-3
+                text-center
+                text-sm
+                font-medium
+                text-gray-700
+                transition-colors
+                duration-200
+                group-hover:text-[#0497D8]
+              "
+            >
+              {category.name}
+            </p>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }

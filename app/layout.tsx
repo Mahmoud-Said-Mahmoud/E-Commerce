@@ -32,17 +32,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={cn("h-full", "antialiased", inter.variable, "font-sans", geist.variable)}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
-        <ThemeProvider attribute="class"
+      <body className="flex min-h-screen flex-col">
+        {/* <ThemeProvider attribute="class"
             defaultTheme="system"
             enableSystem
             disableTransitionOnChange 
-            >
+            > */}
               <Navbar/>
-        {children}
-        <Info />
+       <div className="flex-1">
+      {children}
+    </div>
+        
         <Footer/>
-        </ThemeProvider>
+        {/* </ThemeProvider> */}
         </body>
     </html>
   );

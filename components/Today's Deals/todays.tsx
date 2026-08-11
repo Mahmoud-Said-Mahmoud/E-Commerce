@@ -1,19 +1,18 @@
 "use client";
-import React, { useEffect, useState } from "react";
+
+import { useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+
 import {
   Card,
-  CardAction,
-  CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import Image from "next/image";
+
 import { Button } from "../ui/button";
-import { Truck } from "lucide-react";
-import { ProductI } from "@/interface/product";
-import { productApi } from "@/service/product";
+
 import {
   Carousel,
   CarouselContent,
@@ -21,176 +20,263 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "../ui/carousel";
+
+import { productApi } from "@/service/product";
+import type { ProductI } from "@/interface/product";
+
 import { LuShieldCheck } from "react-icons/lu";
 import { FaShippingFast } from "react-icons/fa";
 
-export default function Todays() {
-  const [bestProduct, setBestProduct] = useState<ProductI[]>([]);
-  const [id, setId] = useState(134);
-  const [page, setpage] = useState(1);
-  useEffect(() => {
-    async function getProducts() {
-      const best = await productApi(id,page);
-      setBestProduct(best.data);
-    }
+const END_DATE = new Date("2026-08-15T23:59:59").getTime();
 
-    getProducts();
-  }, [id]);
+export default function Todays() {
+  const [products, setProducts] = useState<ProductI[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [time, setTime] = useState({
     days: 0,
     hours: 0,
     minutes: 0,
     seconds: 0,
   });
-  // const now= new Date().getTime()
-  const endDate = new Date("2026-08-10").getTime();
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      const now = Date.now();
-
-      const diffrent = endDate - now;
-
-      if (diffrent <= 0) {
-        clearInterval(timer);
-
-        setTime({
-          days: 0,
-          hours: 0,
-          minutes: 0,
-          seconds: 0,
+    async function getProducts() {
+      try {
+        const result = await productApi(1, {
+          category: "134",
         });
 
-        return;
+        const filtered = (result.data || [])
+          .filter((product) =>
+            product.images?.some((image) => image?.src)
+          )
+          .slice(0, 8);
+
+        setProducts(filtered);
+      } finally {
+        setLoading(false);
       }
+    }
+
+    getProducts();
+  }, []);
+
+  useEffect(() => {
+    const update = () => {
+      const diff = END_DATE - Date.now();
+
+      if (diff <= 0) return;
 
       setTime({
-        days: Math.round(diffrent / (1000 * 60 * 60 * 24)),
-        hours: Math.round(
-          (diffrent % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
-        ),
-        minutes: Math.round((diffrent % (1000 * 60 * 60)) / 1000 / 60),
-        seconds: Math.round((diffrent % (1000 * 60)) / 1000),
+        days: Math.floor(diff / 86400000),
+        hours: Math.floor((diff % 86400000) / 3600000),
+        minutes: Math.floor((diff % 3600000) / 60000),
+        seconds: Math.floor((diff % 60000) / 1000),
       });
-    }, 1000);
+    };
+
+    update();
+
+    const timer = setInterval(update, 1000);
 
     return () => clearInterval(timer);
   }, []);
 
   return (
-    <>
-      <section className="container mx-auto flex gap-2 items-center py-5">
-        <div className="w-full">
-          <Card className="w-full p-4">
-            <div className="flex gap-7 items-center">
-              <div>
-                <p className="text-[#0497D8] font-extrabold text-lg pb-2">
-                  Today&apos;s Deals 🔥
-                </p>
-                <p className="leading-6">
-                  Don&apos;t miss our biggest discounts Save up to 50% on top
-                  electronics.
-                </p>
-              </div>
+    <section className="container mx-auto py-10">
+      <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+        {/* DEAL CARD */}
 
-              <Image
-                src="/Image/offers.png"
-                width={400}
-                height={400}
-                alt="offers"
-                className="w-1/2"
-              />
-            </div>
-            <div>
-              <p className="text-[16px] text-[#0497D8] font-bold ms-2">
-                Ends In
-              </p>
-              <div className="flex gap-2">
-                <Card className="w-17.5 p-2 text-center ">
-                  <CardHeader className="p-0">
-                    <p>Days</p>
-                    <CardDescription>{time.days}</CardDescription>
-                  </CardHeader>
-                </Card>
-                <Card className="w-17.5 p-2 text-center">
-                  <CardHeader className="p-0">
-                    <p>Hours</p>
-                    <CardDescription>{time.hours}</CardDescription>
-                  </CardHeader>
-                </Card>
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-[#0497D8]/10 via-white to-[#0497D8]/5 shadow-lg">
+          <div className="p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <span className="rounded-full bg-[#0497D8] px-3 py-1 text-xs font-semibold text-white">
+                LIMITED OFFER
+              </span>
 
-                <Card className="w-17.5 p-2 text-center">
-                  <CardHeader className="p-0">
-                    <p>Minutes</p>
-                    <CardDescription>{time.minutes}</CardDescription>
-                  </CardHeader>
-                </Card>
-                <Card className="w-17.5 p-2 text-center">
-                  <CardHeader className="p-0">
-                    <p>Seconds</p>
-                    <CardDescription>{time.seconds}</CardDescription>
-                  </CardHeader>
-                </Card>
-              </div>
+              <span className="text-sm font-medium text-[#0497D8]">
+                Up to 50% OFF
+              </span>
             </div>
-            <Button className="hover:-translate-y-0.5 duration-300 w-1/3">
+
+            <h2 className="text-3xl font-bold text-gray-900">
+              Today&apos;s Deals
+            </h2>
+
+            <p className="mt-3 text-sm leading-6 text-gray-600">
+              Don&apos;t miss our biggest discounts on top electronics,
+              accessories and smart devices.
+            </p>
+
+            <Image
+              src="/Image/offers.png"
+              width={500}
+              height={400}
+              alt="Offers"
+              className="mx-auto my-5 h-44 w-full object-contain"
+            />
+
+            <p className="mb-3 text-sm font-semibold text-gray-700">
+              Ends in
+            </p>
+
+            <div className="grid grid-cols-4 gap-2">
+              <TimerBox label="Days" value={time.days} />
+              <TimerBox label="Hours" value={time.hours} />
+              <TimerBox label="Min" value={time.minutes} />
+              <TimerBox label="Sec" value={time.seconds} />
+            </div>
+
+            <Button className="mt-6 w-full bg-[#0497D8] text-white hover:bg-[#0387c2]">
               Shop Now
             </Button>
-          </Card>
+          </div>
+        </Card>
+
+        {/* PRODUCTS */}
+
+        <div className="min-w-0">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Special offers</p>
+
+              <h3 className="text-xl font-semibold text-gray-900">
+                Best Deals For You
+              </h3>
+            </div>
+
+            <Link
+              href="/products"
+              className="text-sm font-medium text-[#0497D8]"
+            >
+              View all
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="overflow-hidden rounded-xl border"
+                >
+                  <div className="h-56 animate-pulse bg-gray-100" />
+
+                  <div className="space-y-3 p-4">
+                    <div className="h-4 animate-pulse rounded bg-gray-100" />
+
+                    <div className="h-4 w-2/3 animate-pulse rounded bg-gray-100" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <Carousel
+              opts={{
+                align: "start",
+                loop: products.length > 4,
+              }}
+            >
+              <CarouselContent className="-ml-4">
+                {products.map((product) => {
+                  const image = product.images?.find(
+                    (item) => item?.src
+                  );
+
+                  if (!image?.src) return null;
+
+                  return (
+                    <CarouselItem
+                      key={product.id}
+                      className="basis-1/2 pl-4 lg:basis-1/4"
+                    >
+                      <Link href={`/detail/${product.slug}`}>
+                        <Card className="group h-full overflow-hidden border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+                          <div className="relative flex h-56 items-center justify-center overflow-hidden bg-gray-50">
+                            <Image
+                              src={image.src}
+                              alt={product.name}
+                              width={400}
+                              height={400}
+                              className="h-full w-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
+                            />
+
+                            {product.on_sale && (
+                              <span className="absolute left-3 top-3 rounded-full bg-red-500 px-2 py-1 text-xs font-semibold text-white">
+                                Sale
+                              </span>
+                            )}
+                          </div>
+
+                          <CardHeader className="space-y-3">
+                            <CardTitle className="line-clamp-2 text-sm font-medium">
+                              {product.name}
+                            </CardTitle>
+
+                            <CardDescription>
+                              <div className="flex items-center justify-between">
+                                <span className="text-lg font-bold text-gray-900">
+                                  {product.price} EGP
+                                </span>
+
+                                {product.on_sale &&
+                                  product.regular_price && (
+                                    <span className="text-xs text-gray-400 line-through">
+                                      {product.regular_price}
+                                    </span>
+                                  )}
+                              </div>
+
+                              <div className="mt-3 h-7 overflow-hidden">
+                                <div className="animate-vertical-slide">
+                                  <div className="flex h-7 items-center gap-2 text-xs text-gray-500">
+                                    <LuShieldCheck className="text-[#0497D8]" />
+                                    Secure payment with Paymob
+                                  </div>
+
+                                  <div className="flex h-7 items-center gap-2 text-xs text-gray-500">
+                                    <FaShippingFast className="text-[#0497D8]" />
+                                    Delivery with Bosta
+                                  </div>
+                                </div>
+                              </div>
+                            </CardDescription>
+                          </CardHeader>
+                        </Card>
+                      </Link>
+                    </CarouselItem>
+                  );
+                })}
+              </CarouselContent>
+
+              <CarouselPrevious className="left-2 bg-white shadow-md hover:bg-[#0497D8] hover:text-white" />
+
+              <CarouselNext className="right-2 bg-white shadow-md hover:bg-[#0497D8] hover:text-white" />
+            </Carousel>
+          )}
         </div>
+      </div>
+    </section>
+  );
+}
 
-        <Carousel
-          className="relative"
-          opts={{
-            align: "start",
-            loop: true,
-          }}
-        >
-          <CarouselContent className="p-1 m-1">
-            {bestProduct.map((product) => (
-              <CarouselItem key={product.id} className="basis-1/4">
-                <Card className="relative mx-auto w-full max-w-sm pt-0 cursor-pointer">
-                  {product.images[0]?.src && (
-                    <Image
-                      src={product.images[0].src}
-                      alt={product.name}
-                      width={500}
-                      height={500}
-                      className="w-full object-cover h-75 hover:scale-105 duration-200 p-2"
-                    />
-                  )}
+function TimerBox({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-xl border bg-white p-3 text-center shadow-sm">
+      <p className="text-xl font-bold text-gray-900">
+        {String(value).padStart(2, "0")}
+      </p>
 
-                  <CardHeader className="h-25">
-                    <CardTitle className="font-light line-clamp-2">
-                      {product.name}
-                    </CardTitle>
-                    <CardDescription className="flex justify-between items-center ">
-                      <p className="font-extrabold text-black">
-                        {product.price} EGP
-                      </p>
-                      <p className="line-through">{product.sale_price}</p>
-                    </CardDescription>
-                    <div className="h-8 overflow-hidden">
-                      <div className="animate-vertical-slide">
-                        <div className="h-8 flex items-center gap-2">
-                          <LuShieldCheck className="text-[#0497D8]" />
-                          <span>Secure payment with Paymob</span>
-                        </div>
-                        <div className="h-8 flex items-center gap-2">
-                          <FaShippingFast className="text-[#0497D8]" />
-                          <span>Track and delivery with Bosta</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardHeader>
-                </Card>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <CarouselPrevious className="hover:bg-[#0497D8] duration-200 cursor-pointer p-5 absolute left-5" />
-          <CarouselNext className="hover:bg-[#0497D8] duration-200 cursor-pointer p-5 absolute right-3" />
-        </Carousel>
-      </section>
-    </>
+      <span className="text-[11px] text-gray-500">
+        {label}
+      </span>
+    </div>
   );
 }

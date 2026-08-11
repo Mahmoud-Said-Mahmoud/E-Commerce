@@ -43,8 +43,8 @@ export default function ProductGallery({ product }: any) {
       </Carousel>
 
       {/* Thumbnails */}
-      <Carousel className="mx-auto w-[80%]">
-        <CarouselContent className="mx-auto gap-1 p-2">
+      <Carousel className="mx-auto w-[80%] flex flex-col!">
+        <CarouselContent className="mx-auto gap-1 p-2 ">
           {console.log(product.images)}
           {product.images.map((image: any, index: number) => (
             <CarouselItem
@@ -53,7 +53,7 @@ export default function ProductGallery({ product }: any) {
               style={{
                 flexBasis: `${100 / product.images.length}%`,
               }}
-              className="cursor-pointer rounded-lg border p-1"
+              className="cursor-pointer rounded-lg border p-1 "
             >
               <Image
                 src={image.src}

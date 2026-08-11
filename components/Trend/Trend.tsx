@@ -1,18 +1,22 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { IoCartOutline } from "react-icons/io5";
-import { LuShieldCheck } from "react-icons/lu";
+
+import { useEffect, useState } from "react";
+import Image from "next/image";
+
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+
 import {
   Card,
-  CardAction,
-  CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
 import {
   Carousel,
   CarouselContent,
@@ -20,284 +24,423 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { Button } from "@/components/ui/button";
+
 import { productApi } from "@/service/product";
-import { ProductI } from "@/interface/product";
-import Image from "next/image";
-import { start } from "repl";
-import Autoplay from "embla-carousel-autoplay";
+import type { ProductI } from "@/interface/product";
+
+import { LuShieldCheck } from "react-icons/lu";
 import { FaShippingFast } from "react-icons/fa";
 
+/* =========================================================
+   TYPES
+========================================================= */
+
+interface CategoryTab {
+  value: string;
+  label: string;
+  categoryId: number;
+}
+
+/* =========================================================
+   CATEGORIES
+========================================================= */
+
+const categories: CategoryTab[] = [
+  {
+    value: "mobile",
+    label: "Mobile",
+    categoryId: 134,
+  },
+  {
+    value: "laptops",
+    label: "Laptops & PC",
+    categoryId: 54,
+  },
+  {
+    value: "home-appliances",
+    label: "Home Appliances",
+    categoryId: 1843,
+  },
+  {
+    value: "accessories",
+    label: "Accessories",
+    categoryId: 131,
+  },
+];
+
+/* =========================================================
+   PAGE
+========================================================= */
+
 export default function Trend() {
-  const [bestProduct, setBestProduct] = useState<ProductI[]>([]);
-  const [id, setId] = useState(134);
-  const [page, setpage] = useState(1);
+  const [activeCategory, setActiveCategory] = useState(134);
+
+  const [products, setProducts] = useState<ProductI[]>([]);
+
+  const [loading, setLoading] = useState(true);
+
+  /* =======================================================
+     GET PRODUCTS
+  ======================================================= */
+
   useEffect(() => {
+    let cancelled = false;
+
     async function getProducts() {
-      const best = await productApi(id,page);
-      setBestProduct(best.data);
+      try {
+        setLoading(true);
+
+        /*
+         * Get products for the selected category.
+         *
+         * We request only the first page.
+         */
+        const result = await productApi(1, {
+          category: activeCategory.toString(),
+        });
+
+        if (cancelled) return;
+
+        /*
+         * Only products that have at least
+         * one valid image.
+         */
+        const productsWithImages = (result.data || [])
+          .filter((product: ProductI) =>
+            product.images?.some(
+              (image) => Boolean(image?.src)
+            )
+          )
+          .slice(0, 12);
+
+        setProducts(productsWithImages);
+      } catch (error) {
+        console.error(
+          "Best Seller products error:",
+          error
+        );
+
+        if (!cancelled) {
+          setProducts([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     }
 
     getProducts();
-  }, [id,page]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCategory]);
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
 
   return (
-    <>
-      <div className="container mx-auto py-10">
-        <h2 className="text-lg font-extrabold">Best Seller</h2>
+    <section className="container mx-auto py-10">
+      {/* TITLE */}
 
-        <Tabs defaultValue="mobile">
-
-          <TabsList className="gap-5 ">
-            <TabsTrigger
-              value="mobile"
-              onClick={() => setId(134)}
-              className="data-active:bg-[#0497D8] data-active:text-black/70  cursor-pointer text-lg p-4"
-            >
-              Mobile
-            </TabsTrigger>
-            <TabsTrigger
-              value="laptops"
-              onClick={() => setId(54)}
-              className="data-active:bg-[#0497D8] data-active:text-black/70 cursor-pointer text-lg p-4"
-            >
-              Laptops & Pc
-            </TabsTrigger>
-            <TabsTrigger
-              value="home Appliances"
-              onClick={() => setId(1843)}
-              className="data-active:bg-[#0497D8] data-active:text-black/70 cursor-pointer text-lg p-4"
-            >
-              Home Appliances
-            </TabsTrigger>
-            <TabsTrigger
-              value="Accessories"
-              onClick={() => setId(131)}
-              className="data-active:bg-[#0497D8] data-active:text-black/70 cursor-pointer text-lg p-4"
-            >
-              Accessories
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="mobile">
-            <Carousel
-              opts={{
-                align: "start",
-                loop: true,
-              }}
-            >
-              <CarouselContent className="p-1 m-1">
-                {bestProduct.map((product) => (
-                  <CarouselItem key={product.id} className="basis-1/5">
-                    <Card className="relative mx-auto w-full max-w-sm pt-0 cursor-pointer">
-                      {product.images[0]?.src && (
-                        <Image
-                          src={product.images[0].src}
-                          alt={product.name}
-                          width={500}
-                          height={500}
-                          className="w-full object-cover h-75 hover:scale-105 duration-200 p-2"
-                        />
-                      )}
-
-                      <CardHeader className="h-25">
-                        <CardTitle className="font-light line-clamp-2">
-                          {product.name}
-                        </CardTitle>
-                        <CardDescription className="flex justify-between items-center">
-                          <p className="font-extrabold text-black">
-                            {product.price} EGP
-                          </p>
-                            <p className="line-through">
-                            {product.sale_price}
-                            </p>
-                        </CardDescription>
-                        <div className="h-8 overflow-hidden">
-                          <div className="animate-vertical-slide">
-                            <div className="h-8 flex items-center gap-2">
-                              <LuShieldCheck className="text-[#0497D8]" />
-                              <span>Secure payment with Paymob</span>
-                            </div>
-                            <div className="h-8 flex items-center gap-2">
-                              <FaShippingFast className="text-[#0497D8]" />
-                              <span>Track and delivery with Bosta</span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardHeader>
-                    </Card>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <CarouselPrevious className="hover:bg-[#0497D8] duration-200 cursor-pointer p-5" />
-              <CarouselNext className="hover:bg-[#0497D8] duration-200 cursor-pointer p-5" />
-            </Carousel>
-          </TabsContent>
-          <TabsContent value="laptops">
-            <Carousel
-              opts={{
-                align: "start",
-                loop: true,
-              }}
-            >
-              <CarouselContent className="p-1 m-1">
-                {bestProduct.map((product) => (
-                  <CarouselItem key={product.id} className="basis-1/5">
-                    <Card className="relative mx-auto w-full max-w-sm pt-0 cursor-pointer">
-                      {product.images[0]?.src && (
-                        <Image
-                          src={product.images[0].src}
-                          alt={product.name}
-                          width={500}
-                          height={500}
-                          className="w-full object-cover h-75 hover:scale-105 duration-200 p-2"
-                        />
-                      )}
-
-                      <CardHeader className="h-25">
-                        <CardTitle className="font-light line-clamp-2">
-                          {product.name}
-                        </CardTitle>
-                        <CardDescription className="flex justify-between items-center ">
-                          <p className="font-extrabold text-black">
-                            {product.price} EGP
-                           
-                          </p>
-                           <p className="line-through">
-                            {product.sale_price}
-                            </p>
-                        </CardDescription>
-                        <div className="h-8 overflow-hidden">
-                          <div className="animate-vertical-slide">
-                            <div className="h-8 flex items-center gap-2">
-                              <LuShieldCheck className="text-[#0497D8]" />
-                              <span>Secure payment with Paymob</span>
-                            </div>
-                            <div className="h-8 flex items-center gap-2">
-                              <FaShippingFast className="text-[#0497D8]" />
-                              <span>Track and delivery with Bosta</span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardHeader>
-                    </Card>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <CarouselPrevious className="hover:bg-[#0497D8] duration-200 cursor-pointer p-5" />
-              <CarouselNext className="hover:bg-[#0497D8] duration-200 cursor-pointer p-5" />
-            </Carousel>
-          </TabsContent>
-          <TabsContent value="home Appliances">
-            <Carousel
-              opts={{
-                align: "start",
-                loop: true,
-              }}
-            >
-              <CarouselContent className="p-1 m-1">
-                {bestProduct.map((product) => (
-                  <CarouselItem key={product.id} className="basis-1/5">
-                    <Card className="relative mx-auto w-full max-w-sm pt-0 cursor-pointer">
-                      {product.images[0]?.src && (
-                        <Image
-                          src={product.images[0].src}
-                          alt={product.name}
-                          width={500}
-                          height={500}
-                          className="w-full object-cover h-75 hover:scale-105 duration-200 p-2"
-                        />
-                      )}
-
-                      <CardHeader className="h-25">
-                        <CardTitle className="font-light line-clamp-2">
-                          {product.name}
-                        </CardTitle>
-                        <CardDescription>
-                          <p className="font-extrabold text-black">
-                            {product.price} EGP
-                            <p className="line-through">
-                            {product.sale_price}
-                            </p>
-                          </p>
-                        </CardDescription>
-                        <div className="h-8 overflow-hidden">
-                          <div className="animate-vertical-slide">
-                            <div className="h-8 flex items-center gap-2">
-                              <LuShieldCheck className="text-[#0497D8]" />
-                              <span>Secure payment with Paymob</span>
-                            </div>
-                            <div className="h-8 flex items-center gap-2">
-                              <FaShippingFast className="text-[#0497D8]" />
-                              <span>Track and delivery with Bosta</span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardHeader>
-                    </Card>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <CarouselPrevious className="hover:bg-[#0497D8] duration-200 cursor-pointer p-5" />
-              <CarouselNext className="hover:bg-[#0497D8] duration-200 cursor-pointer p-5" />
-            </Carousel>
-          </TabsContent>
-          <TabsContent value="Accessories">
-            <Carousel
-              opts={{
-                align: "start",
-                loop: true,
-              }}
-            >
-              <CarouselContent className="p-1 m-1">
-                {bestProduct.map((product) => (
-                  <CarouselItem key={product.id} className="basis-1/5">
-                    <Card className="relative mx-auto w-full max-w-sm pt-0 cursor-pointer">
-                      {product.images[0]?.src && (
-                        <Image
-                          src={product.images[0].src}
-                          alt={product.name}
-                          width={500}
-                          height={500}
-                          className="w-full object-cover h-75 hover:scale-105 duration-200 p-2"
-                        />
-                      )}
-
-                      <CardHeader className="h-25">
-                        <CardTitle className="font-light line-clamp-2">
-                          {product.name}
-                        </CardTitle>
-                        <CardDescription>
-                          <p className="font-extrabold text-black">
-                            {product.price} EGP
-                            <p className="line-through">
-                            {product.sale_price}
-                            </p>
-                          </p>
-                        </CardDescription>
-                        <div className="h-8 overflow-hidden">
-                          <div className="animate-vertical-slide">
-                            <div className="h-8 flex items-center gap-2">
-                              <LuShieldCheck className="text-[#0497D8]" />
-                              <span>Secure payment with Paymob</span>
-                            </div>
-                            <div className="h-8 flex items-center gap-2">
-                              <FaShippingFast className="text-[#0497D8]" />
-                              <span>Track and delivery with Bosta</span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardHeader>
-                    </Card>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <CarouselPrevious className="hover:bg-[#0497D8] duration-200 cursor-pointer p-5" />
-              <CarouselNext className="hover:bg-[#0497D8] duration-200 cursor-pointer p-5" />
-            </Carousel>
-          </TabsContent>
-         
-        </Tabs>
+      <div className="mb-6">
+        <h2 className="text-lg font-extrabold">
+          Best Seller
+        </h2>
       </div>
-    </>
+
+      {/* TABS */}
+
+      <Tabs
+        defaultValue="mobile"
+        onValueChange={(value) => {
+          const category = categories.find(
+            (item) => item.value === value
+          );
+
+          if (category) {
+            setActiveCategory(category.categoryId);
+          }
+        }}
+      >
+        {/* =================================================
+            TABS LIST
+        ================================================= */}
+
+        <TabsList className="mb-6 gap-2">
+          {categories.map((category) => (
+            <TabsTrigger
+              key={category.value}
+              value={category.value}
+              className="
+                cursor-pointer
+                px-4
+                py-3
+                text-lg
+                data-[state=active]:bg-[#0497D8]
+                data-[state=active]:text-black/70
+              "
+            >
+              {category.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {/* =================================================
+            MOBILE
+        ================================================= */}
+
+        <TabsContent value="mobile">
+          <ProductCarousel
+            products={products}
+            loading={loading}
+          />
+        </TabsContent>
+
+        {/* =================================================
+            LAPTOPS
+        ================================================= */}
+
+        <TabsContent value="laptops">
+          <ProductCarousel
+            products={products}
+            loading={loading}
+          />
+        </TabsContent>
+
+        {/* =================================================
+            HOME APPLIANCES
+        ================================================= */}
+
+        <TabsContent value="home-appliances">
+          <ProductCarousel
+            products={products}
+            loading={loading}
+          />
+        </TabsContent>
+
+        {/* =================================================
+            ACCESSORIES
+        ================================================= */}
+
+        <TabsContent value="accessories">
+          <ProductCarousel
+            products={products}
+            loading={loading}
+          />
+        </TabsContent>
+      </Tabs>
+    </section>
+  );
+}
+
+/* =========================================================
+   PRODUCT CAROUSEL
+========================================================= */
+
+function ProductCarousel({
+  products,
+  loading,
+}: {
+  products: ProductI[];
+  loading: boolean;
+}) {
+  /* =======================================================
+     LOADING
+  ======================================================= */
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div
+            key={index}
+            className="overflow-hidden rounded-xl border"
+          >
+            <div className="h-64 animate-pulse bg-gray-100" />
+
+            <div className="space-y-3 p-4">
+              <div className="h-4 animate-pulse rounded bg-gray-100" />
+
+              <div className="h-4 w-2/3 animate-pulse rounded bg-gray-100" />
+
+              <div className="h-4 w-1/2 animate-pulse rounded bg-gray-100" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  /* =======================================================
+     NO PRODUCTS
+  ======================================================= */
+
+  if (products.length === 0) {
+    return (
+      <div className="flex h-64 items-center justify-center rounded-xl border border-dashed">
+        <p className="text-sm text-gray-500">
+          No products available
+        </p>
+      </div>
+    );
+  }
+
+  /* =======================================================
+     CAROUSEL
+  ======================================================= */
+
+  return (
+    <Carousel
+      opts={{
+        align: "start",
+        loop: products.length > 5,
+      }}
+      className="w-full"
+    >
+      <CarouselContent className="-ml-3">
+        {products.map((product) => {
+          /*
+           * Find first valid image.
+           */
+          const image = product.images?.find(
+            (item) => Boolean(item?.src)
+          );
+
+          /*
+           * Don't render products without images.
+           */
+          if (!image?.src) {
+            return null;
+          }
+
+          return (
+            <CarouselItem
+              key={product.id}
+              className="
+                basis-1/2
+                pl-3
+                sm:basis-1/3
+                lg:basis-1/5
+              "
+            >
+              <Card
+                className="
+                  relative
+                  mx-auto
+                  w-full
+                  cursor-pointer
+                  overflow-hidden
+                  pt-0
+                  transition
+                  duration-200
+                  hover:-translate-y-1
+                  hover:shadow-lg
+                "
+              >
+                {/* IMAGE */}
+
+                <div className="overflow-hidden">
+                  <Image
+                    src={image.src}
+                    alt={image.alt || product.name}
+                    width={500}
+                    height={500}
+                    className="
+                      h-75
+                      w-full
+                      object-contain
+                      p-2
+                      transition
+                      duration-300
+                      hover:scale-105
+                    "
+                  />
+                </div>
+
+                {/* INFO */}
+
+                <CardHeader className="h-35">
+                  {/* PRODUCT NAME */}
+
+                  <CardTitle className="line-clamp-2 font-light">
+                    {product.name}
+                  </CardTitle>
+
+                  <CardDescription>
+                    {/* PRICE */}
+
+                    <div className="mt-2 flex items-center justify-between">
+                      <p className="font-extrabold text-black">
+                        {product.price} EGP
+                      </p>
+
+                      {product.on_sale &&
+                        product.regular_price && (
+                          <p className="text-xs text-gray-400 line-through">
+                            {product.regular_price}
+                          </p>
+                        )}
+                    </div>
+
+                    {/* SHIPPING */}
+
+                    <div className="mt-3 h-8 overflow-hidden">
+                      <div className="animate-vertical-slide">
+                        {/* PAYMOB */}
+
+                        <div className="flex h-8 items-center gap-2 text-xs text-gray-500">
+                          <LuShieldCheck className="shrink-0 text-[#0497D8]" />
+
+                          <span>
+                            Secure payment with Paymob
+                          </span>
+                        </div>
+
+                        {/* BOSTA */}
+
+                        <div className="flex h-8 items-center gap-2 text-xs text-gray-500">
+                          <FaShippingFast className="shrink-0 text-[#0497D8]" />
+
+                          <span>
+                            Track and delivery with Bosta
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            </CarouselItem>
+          );
+        })}
+      </CarouselContent>
+
+      {/* PREVIOUS */}
+
+      <CarouselPrevious
+        className="
+          cursor-pointer
+          p-5
+          transition
+          duration-200
+          hover:bg-[#0497D8]
+        "
+      />
+
+      {/* NEXT */}
+
+      <CarouselNext
+        className="
+          cursor-pointer
+          p-5
+          transition
+          duration-200
+          hover:bg-[#0497D8]
+        "
+      />
+    </Carousel>
   );
 }
