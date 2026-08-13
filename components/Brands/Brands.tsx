@@ -13,6 +13,7 @@ import {
 import { BrandI } from "@/interface/brand";
 import { BrandApi } from "@/service/brand";
 import Image from "next/image";
+import Link from "next/link";
 import { Card } from "../ui/card";
 import Autoplay from "embla-carousel-autoplay";
 
@@ -21,9 +22,15 @@ export default function Brands() {
 
   useEffect(() => {
     async function getBrands() {
-      const best = await BrandApi();
-      setBestBrand(best);
-      console.log(best);
+      try {
+        const best = await BrandApi();
+
+        setBestBrand(best);
+
+        console.log(best);
+      } catch (error) {
+        console.error("Failed to fetch brands:", error);
+      }
     }
 
     getBrands();
@@ -31,7 +38,9 @@ export default function Brands() {
 
   return (
     <section className="container mx-auto py-5">
+
       {/* Header */}
+
       <div className="mb-5">
         <p className="text-2xl font-bold">
           Popular Brands
@@ -43,44 +52,76 @@ export default function Brands() {
       </div>
 
       {/* Brands Carousel */}
+
       <Carousel
         opts={{
           align: "start",
           loop: true,
         }}
         plugins={[
-        Autoplay({
-          delay: 2000,
-        }),
-      ]}
+          Autoplay({
+            delay: 2000,
+          }),
+        ]}
         className="w-full"
       >
         <CarouselContent className="p-5">
+
           {bestBrand.map(
             (brand) =>
               brand.image?.src && (
                 <CarouselItem
                   key={brand.id}
-                  className="pl-3 basis-1/6"
+                  className="basis-1/2 pl-3 sm:basis-1/3 md:basis-1/5 lg:basis-1/6"
                 >
-                  <Card className="h-28 rounded-xl flex items-center justify-center p-6 transition-all duration-300 hover:-translate-y-1 hover:border-[#0497D8] hover:shadow-md">
-                    <Image
-                      src={brand.image.src}
-                      alt={brand.name}
-                      width={140}
-                      height={70}
-                      className="max-w-full max-h-full object-contain"
-                    />
-                  </Card>
+
+                  {/* BRAND LINK */}
+
+                  <Link
+                    href={`/products?brand=${brand.id}`}
+                    className="block"
+                  >
+                    <Card
+                      className="
+                        flex
+                        h-28
+                        cursor-pointer
+                        items-center
+                        justify-center
+                        rounded-xl
+                        p-6
+                        transition-all
+                        duration-300
+                        hover:-translate-y-1
+                        hover:border-[#0497D8]
+                        hover:shadow-md
+                      "
+                    >
+                      <Image
+                        src={brand.image.src}
+                        alt={brand.name}
+                        width={140}
+                        height={70}
+                        className="
+                          max-h-full
+                          max-w-full
+                          object-contain
+                        "
+                      />
+                    </Card>
+                  </Link>
+
                 </CarouselItem>
-              ),
+              )
           )}
+
         </CarouselContent>
 
         <CarouselPrevious className="left-2" />
 
         <CarouselNext className="right-2" />
       </Carousel>
+
     </section>
   );
 }

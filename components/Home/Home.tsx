@@ -5,6 +5,7 @@ import Todays from "@/components/Today's Deals/todays";
 import Assec from "@/components/Assces/Assec";
 import Brands from "@/components/Brands/Brands";
 import Info from "@/components/Info/Info";
+import CouponBanner from "@/components/CouponBanner/CouponBanner";
 
 export default function Home() {
   return (
@@ -13,7 +14,7 @@ export default function Home() {
       <Category />
       <Trend />
       <Todays />
-      <Assec />
+      <CouponBanner/>
       <Brands />
       
     </>

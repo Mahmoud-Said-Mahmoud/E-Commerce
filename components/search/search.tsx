@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Product {
   id: number;
@@ -17,10 +18,18 @@ interface Product {
 }
 
 export default function NewSearch() {
+  const router = useRouter();
+
+  const searchRef = useRef<HTMLDivElement>(null);
+
   const [query, setQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+
+  /* =========================================================
+     SEARCH API
+  ========================================================= */
 
   useEffect(() => {
     if (!query.trim()) {
@@ -56,52 +65,137 @@ export default function NewSearch() {
     return () => clearTimeout(timer);
   }, [query]);
 
+  /* =========================================================
+     CLICK OUTSIDE
+  ========================================================= */
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  /* =========================================================
+     GO TO ALL SEARCH RESULTS
+  ========================================================= */
+
+  const handleSearchSubmit = (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+
+    const value = query.trim();
+
+    if (!value) return;
+
+    setOpen(false);
+
+    router.push(
+      `/products/search?q=${encodeURIComponent(value)}`,
+    );
+  };
+
   return (
-    <div className="relative w-full max-w-xl">
-      {/* Search input */}
+    <div
+      ref={searchRef}
+      className="relative w-full max-w-xl"
+    >
+      {/* =====================================================
+          SEARCH INPUT
+      ===================================================== */}
 
-      <div className="relative">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => {
-            if (query.trim()) {
+      <form onSubmit={handleSearchSubmit}>
+        <div className="relative">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
               setOpen(true);
-            }
-          }}
-          placeholder="Search products..."
-          className="h-12 w-full rounded-xl border px-4 pr-10 outline-none focus:border-[#0497D8]"
-        />
+            }}
+            onFocus={() => {
+              if (query.trim()) {
+                setOpen(true);
+              }
+            }}
+            placeholder="Search products..."
+            className="
+              h-12
+              w-full
+              rounded-xl
+              border
+              px-4
+              pr-10
+              outline-none
+              focus:border-[#0497D8]
+            "
+          />
 
-        {loading && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-[#0497D8]" />
-          </div>
-        )}
-      </div>
+          {loading && (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+              <div
+                className="
+                  h-4
+                  w-4
+                  animate-spin
+                  rounded-full
+                  border-2
+                  border-gray-300
+                  border-t-[#0497D8]
+                "
+              />
+            </div>
+          )}
+        </div>
+      </form>
 
-      {/* Results */}
+      {/* =====================================================
+          RESULTS
+      ===================================================== */}
 
       {open && (
         <div
           className="
-      absolute left-0 right-0 top-[calc(100%+8px)]
-      z-50
-      grid grid-cols-3 gap-5
-      w-200
-      max-h-[70vh]
-      overflow-y-auto
-      overscroll-contain
-      rounded-xl border bg-white shadow-xl
-    "
+            absolute
+            left-0
+            right-0
+            top-[calc(100%+8px)]
+            z-50
+            grid
+            w-full
+            max-w-[800px]
+            grid-cols-1
+            gap-2
+            overflow-y-auto
+            overscroll-contain
+            rounded-xl
+            border
+            bg-white
+            shadow-xl
+
+            sm:grid-cols-2
+            lg:grid-cols-3
+
+            max-h-[70vh]
+          "
         >
           {loading ? (
-            <div className="col-span-3 p-4 text-sm text-gray-500">
+            <div className="col-span-full p-4 text-sm text-gray-500">
               Searching...
             </div>
           ) : products.length === 0 ? (
-            <div className="col-span-3 p-4 text-sm text-gray-500">
+            <div className="col-span-full p-4 text-sm text-gray-500">
               No products found
             </div>
           ) : (
@@ -111,13 +205,24 @@ export default function NewSearch() {
                   key={product.id}
                   href={`/products/detail/${product.id}`}
                   onClick={() => setOpen(false)}
-                  className="flex gap-3 border-b p-3 transition hover:bg-gray-50"
+                  className="
+                    flex
+                    min-w-0
+                    gap-3
+                    border-b
+                    p-3
+                    transition
+                    hover:bg-gray-50
+                  "
                 >
                   <div className="relative h-14 w-14 shrink-0">
                     {product.images?.[0]?.src && (
                       <Image
                         src={product.images[0].src}
-                        alt={product.images[0].alt || product.name}
+                        alt={
+                          product.images[0].alt ||
+                          product.name
+                        }
                         fill
                         className="object-contain"
                       />
@@ -142,16 +247,26 @@ export default function NewSearch() {
                 </Link>
               ))}
 
+              {/* =================================================
+                  SEE ALL RESULTS
+              ================================================= */}
+
               <Link
-                href={`/products/search?q=${encodeURIComponent(query.trim())}`}
+                href={`/products/search?q=${encodeURIComponent(
+                  query.trim(),
+                )}`}
                 onClick={() => setOpen(false)}
                 className="
-            col-span-3
-            border-t p-3
-            text-center text-sm font-medium
-            text-[#0497D8]
-            hover:bg-gray-50
-          "
+                  col-span-full
+                  border-t
+                  p-3
+                  text-center
+                  text-sm
+                  font-medium
+                  text-[#0497D8]
+                  transition
+                  hover:bg-gray-50
+                "
               >
                 See all results for "{query}"
               </Link>

@@ -32,6 +32,9 @@ import { LuShieldCheck } from "react-icons/lu";
 import { FaShippingFast } from "react-icons/fa";
 import Link from "next/link";
 
+import { ShoppingCart } from "lucide-react";
+import { useCart } from "@/context/CartContext";
+
 /* =========================================================
    TYPES
 ========================================================= */
@@ -248,6 +251,8 @@ function ProductCarousel({
   products: ProductI[];
   loading: boolean;
 }) {
+  const { addToCart } = useCart();
+
   /* =======================================================
      LOADING
   ======================================================= */
@@ -327,13 +332,11 @@ function ProductCarousel({
                 lg:basis-1/5
               "
             >
-              <Link href={'/products/detail/'+product.id}>
               <Card
                 className="
                   relative
                   mx-auto
                   w-full
-                  cursor-pointer
                   overflow-hidden
                   pt-0
                   transition
@@ -342,80 +345,116 @@ function ProductCarousel({
                   hover:shadow-lg
                 "
               >
-                {/* IMAGE */}
+                <Link href={"/products/detail/" + product.id}>
+                  {/* IMAGE */}
 
-                <div className="overflow-hidden">
-                  <Image
-                    src={image.src}
-                    alt={image.alt || product.name}
-                    width={500}
-                    height={500}
-                    className="
-                      h-75
-                      w-full
-                      object-contain
-                      p-2
-                      transition
-                      duration-300
-                      hover:scale-105
-                    "
-                  />
-                </div>
+                  <div className="overflow-hidden">
+                    <Image
+                      src={image.src}
+                      alt={image.alt || product.name}
+                      width={500}
+                      height={500}
+                      className="
+                        h-75
+                        w-full
+                        cursor-pointer
+                        object-contain
+                        p-2
+                        transition
+                        duration-300
+                        hover:scale-105
+                      "
+                    />
+                  </div>
 
-                {/* INFO */}
+                  {/* INFO */}
 
-                <CardHeader className="h-35">
-                  {/* PRODUCT NAME */}
+                  <CardHeader className="h-35">
+                    {/* PRODUCT NAME */}
 
-                  <CardTitle className="line-clamp-2 font-light">
-                    {product.name}
-                  </CardTitle>
+                    <CardTitle className="line-clamp-2 font-light">
+                      {product.name}
+                    </CardTitle>
 
-                  <CardDescription>
-                    {/* PRICE */}
+                    <CardDescription>
+                      {/* PRICE */}
 
-                    <div className="mt-2 flex items-center justify-between">
-                      <p className="font-extrabold text-black">
-                        {product.price} EGP
-                      </p>
+                      <div className="mt-2 flex items-center justify-between">
+                        <p className="font-extrabold text-black">
+                          {product.price} EGP
+                        </p>
 
-                      {product.on_sale &&
-                        product.regular_price && (
-                          <p className="text-xs text-gray-400 line-through">
-                            {product.regular_price}
-                          </p>
-                        )}
-                    </div>
+                        {product.on_sale &&
+                          product.regular_price && (
+                            <p className="text-xs text-gray-400 line-through">
+                              {product.regular_price}
+                            </p>
+                          )}
+                      </div>
 
-                    {/* SHIPPING */}
+                      {/* SHIPPING */}
 
-                    <div className="mt-3 h-8 overflow-hidden">
-                      <div className="animate-vertical-slide">
-                        {/* PAYMOB */}
+                      <div className="mt-3 h-8 overflow-hidden">
+                        <div className="animate-vertical-slide">
+                          {/* PAYMOB */}
 
-                        <div className="flex h-8 items-center gap-2 text-xs text-gray-500">
-                          <LuShieldCheck className="shrink-0 text-[#0497D8]" />
+                          <div className="flex h-8 items-center gap-2 text-xs text-gray-500">
+                            <LuShieldCheck className="shrink-0 text-[#0497D8]" />
 
-                          <span>
-                            Secure payment with Paymob
-                          </span>
-                        </div>
+                            <span>
+                              Secure payment with Paymob
+                            </span>
+                          </div>
 
-                        {/* BOSTA */}
+                          {/* BOSTA */}
 
-                        <div className="flex h-8 items-center gap-2 text-xs text-gray-500">
-                          <FaShippingFast className="shrink-0 text-[#0497D8]" />
+                          <div className="flex h-8 items-center gap-2 text-xs text-gray-500">
+                            <FaShippingFast className="shrink-0 text-[#0497D8]" />
 
-                          <span>
-                            Track and delivery with Bosta
-                          </span>
+                            <span>
+                              Track and delivery with Bosta
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </CardDescription>
-                </CardHeader>
+                    </CardDescription>
+                  </CardHeader>
+                </Link>
+
+                {/* ADD TO CART */}
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    addToCart(product);
+                  }}
+                  className="
+                    mx-3
+                    mb-3
+                    flex
+                    w-[calc(100%-1.5rem)]
+                    items-center
+                    justify-center
+                    gap-2
+                    rounded-xl
+                    bg-[#0497D8]
+                    py-2.5
+                    text-sm
+                    font-medium
+                    text-white
+                    transition
+                    hover:bg-[#0387c2]
+                    active:scale-[0.98]
+                  "
+                >
+                  <ShoppingCart size={16} />
+
+                  Add to Cart
+                </button>
               </Card>
-              </Link>
             </CarouselItem>
           );
         })}

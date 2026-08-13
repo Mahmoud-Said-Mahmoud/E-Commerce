@@ -2,7 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { signOut, useSession } from "next-auth/react";
+
+import LoginForm from "@/components/auth/LoginForm";
+import RegisterForm from "@/components/auth/RegisterForm";
 
 import {
   ShoppingCart,
@@ -10,6 +14,9 @@ import {
   MapPinHouse,
   Heart,
   ChevronDown,
+  ChevronRight,
+  LogOut,
+  Package,
 } from "lucide-react";
 
 import { Switch } from "@/components/ui/switch";
@@ -25,407 +32,1009 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu";
-
-import { Field, FieldGroup } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-
-import { ModeToggle } from "../Darkmode/darkMode";
 import NewSearch from "../search/search";
+import { useCart } from "@/context/CartContext";
 
 /* =========================================================
    TYPES
 ========================================================= */
 
-interface MenuItem {
+interface Category {
+  id: number;
   name: string;
-  href: string;
+  slug: string;
+  parent: number;
+  children?: Category[];
 }
 
-interface Category {
+interface CartItem {
+  id: string;
+  productId: number;
+  variationId?: number;
   name: string;
-  href: string;
-  items?: MenuItem[];
+  price: string;
+  quantity: number;
+  attributes: Record<string, string>;
 }
 
 /* =========================================================
-   CATEGORIES
+   DECODE HTML
 ========================================================= */
 
-const categories: Category[] = [
-  {
-    name: "Mobiles",
-    href: "/products?category=66",
-    items: [
-      {
-        name: "Smart Phones",
-        href: "/products?category=66",
-      },
-      {
-        name: "Feature Phones",
-        href: "/products?category=66",
-      },
-    ],
-  },
+function decodeHtml(value: string) {
+  if (typeof document === "undefined") {
+    return value;
+  }
 
-  {
-    name: "Accessories",
-    href: "/products?category=131",
-    items: [
-      {
-        name: "Audio",
-        href: "/products?category=131",
-      },
-      {
-        name: "Computer Accessories",
-        href: "/products?category=131",
-      },
-      {
-        name: "Mobile Accessories",
-        href: "/products?category=131",
-      },
-      {
-        name: "Car Accessories",
-        href: "/products?category=131",
-      },
-      {
-        name: "Smart Devices",
-        href: "/products?category=131",
-      },
-      {
-        name: "Batteries",
-        href: "/products?category=131",
-      },
-      {
-        name: "Power",
-        href: "/products?category=131",
-      },
-    ],
-  },
+  const textarea = document.createElement("textarea");
 
-  {
-    name: "Laptop & PC",
-    href: "/products?category=54",
-    items: [
-      {
-        name: "Desktops",
-        href: "/products?category=54",
-      },
-      {
-        name: "Laptops",
-        href: "/products?category=54",
-      },
-      {
-        name: "Computer Parts",
-        href: "/products?category=54",
-      },
-      {
-        name: "Monitors",
-        href: "/products?category=111",
-      },
-    ],
-  },
+  textarea.innerHTML = value;
 
-  {
-    name: "Gaming",
-    href: "/products?category=948",
-    items: [
-      {
-        name: "Gaming PC",
-        href: "/products?category=948",
-      },
-      {
-        name: "Gamepad & Controller",
-        href: "/products?category=948",
-      },
-    ],
-  },
+  return textarea.value;
+}
 
-  {
-    name: "Network",
-    href: "/products?category=71",
-  },
+/* =========================================================
+   BUILD CATEGORY TREE
+========================================================= */
 
-  {
-    name: "Home Appliances",
-    href: "/products?category=1843",
-  },
+function buildCategoryTree(categories: Category[]) {
+  const alreadyNested = categories.some(
+    (category) =>
+      Array.isArray(category.children) &&
+      category.children.length > 0
+  );
 
-  {
-    name: "Security Systems",
-    href: "/products?category=2313",
-  },
+  if (alreadyNested) {
+    return categories.filter(
+      (category) => category.parent === 0
+    );
+  }
 
-  {
-    name: "Tools",
-    href: "/products?category=17",
-  },
-];
+  const map = new Map<number, Category>();
+
+  categories.forEach((category) => {
+    map.set(category.id, {
+      ...category,
+      children: [],
+    });
+  });
+
+  const tree: Category[] = [];
+
+  categories.forEach((category) => {
+    const current = map.get(category.id);
+
+    if (!current) {
+      return;
+    }
+
+    if (category.parent === 0) {
+      tree.push(current);
+      return;
+    }
+
+    const parent = map.get(category.parent);
+
+    if (parent) {
+      if (!parent.children) {
+        parent.children = [];
+      }
+
+      parent.children.push(current);
+    }
+  });
+
+  return tree;
+}
+
+/* =========================================================
+   READ CART FROM LOCAL STORAGE
+========================================================= */
+
+function getCartFromStorage(): CartItem[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const storedCart = localStorage.getItem("cart");
+
+    if (!storedCart) {
+      return [];
+    }
+
+    const parsedCart = JSON.parse(storedCart);
+
+    if (!Array.isArray(parsedCart)) {
+      return [];
+    }
+
+    return parsedCart;
+  } catch {
+    return [];
+  }
+}
+
+/* =========================================================
+   GET CART TOTAL
+========================================================= */
+
+function getCartItemsCount(cart: CartItem[]) {
+  return cart.reduce((total, item) => {
+    const quantity = Number(item?.quantity || 0);
+
+    return (
+      total +
+      (Number.isFinite(quantity) ? quantity : 0)
+    );
+  }, 0);
+}
 
 /* =========================================================
    NAVBAR
 ========================================================= */
 
 export default function Navbar() {
+  /* =======================================================
+     AUTH SESSION
+  ======================================================= */
+
+  const {
+    data: session,
+    status,
+  } = useSession();
+
+  /* =======================================================
+     GENERAL STATES
+  ======================================================= */
+
   const [isEnglish, setIsEnglish] = useState(true);
 
+  const [authMode, setAuthMode] =
+    useState<"login" | "register">("login");
+
+  const [categories, setCategories] =
+    useState<Category[]>([]);
+
+  const [loadingCategories, setLoadingCategories] =
+    useState(true);
+
+  /* =======================================================
+     CART CONTEXT
+  ======================================================= */
+
+  const { cart } = useCart();
+
+  /* =======================================================
+     CART COUNT
+  ======================================================= */
+
+  const [cartCount, setCartCount] = useState(0);
+
+  /* =======================================================
+     CART SYNC
+  ======================================================= */
+
+  useEffect(() => {
+    function updateCartCount(
+      currentCart: CartItem[]
+    ) {
+      setCartCount(
+        getCartItemsCount(currentCart)
+      );
+    }
+
+    /* Initial cart */
+
+    const initialCart =
+      getCartFromStorage();
+
+    updateCartCount(initialCart);
+
+    /* Same tab */
+
+    function handleCartUpdated(event: Event) {
+      const customEvent =
+        event as CustomEvent<{
+          cart?: CartItem[];
+        }>;
+
+      if (
+        Array.isArray(
+          customEvent.detail?.cart
+        )
+      ) {
+        updateCartCount(
+          customEvent.detail.cart
+        );
+
+        return;
+      }
+
+      const latestCart =
+        getCartFromStorage();
+
+      updateCartCount(latestCart);
+    }
+
+    /* Cross tab */
+
+    function handleStorage(
+      event: StorageEvent
+    ) {
+      if (event.key !== "cart") {
+        return;
+      }
+
+      const latestCart =
+        getCartFromStorage();
+
+      updateCartCount(latestCart);
+    }
+
+    window.addEventListener(
+      "cart-updated",
+      handleCartUpdated
+    );
+
+    window.addEventListener(
+      "storage",
+      handleStorage
+    );
+
+    return () => {
+      window.removeEventListener(
+        "cart-updated",
+        handleCartUpdated
+      );
+
+      window.removeEventListener(
+        "storage",
+        handleStorage
+      );
+    };
+  }, []);
+
+  /* =======================================================
+     SYNC WITH CART CONTEXT
+  ======================================================= */
+
+  useEffect(() => {
+    if (!Array.isArray(cart)) {
+      return;
+    }
+
+    setCartCount(
+      getCartItemsCount(
+        cart as CartItem[]
+      )
+    );
+  }, [cart]);
+
+  /* =======================================================
+     FETCH CATEGORIES
+  ======================================================= */
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function getCategories() {
+      try {
+        const response = await fetch(
+          "/api/categories",
+          {
+            method: "GET",
+            cache: "force-cache",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            "Failed to fetch categories"
+          );
+        }
+
+        const data: Category[] =
+          await response.json();
+
+        if (mounted) {
+          setCategories(data);
+        }
+      } catch (error) {
+        console.error(
+          "Categories error:",
+          error
+        );
+      } finally {
+        if (mounted) {
+          setLoadingCategories(false);
+        }
+      }
+    }
+
+    getCategories();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  /* =======================================================
+     CATEGORY TREE
+  ======================================================= */
+
+  const categoryTree = useMemo(() => {
+    return buildCategoryTree(categories);
+  }, [categories]);
+
+  /* =======================================================
+     USER NAME
+  ======================================================= */
+
+  const userName =
+    session?.user?.name || "Account";
+
+  /* =======================================================
+     LOGOUT
+  ======================================================= */
+
+  async function handleLogout() {
+    await signOut({
+      callbackUrl: "/",
+    });
+  }
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
+
   return (
-    <header className="sticky top-0 z-50 border-b bg-white shadow-sm dark:bg-black">
+    <header
+      className="
+        sticky
+        top-0
+        z-50
+        w-full
+        max-w-full
+        border-b
+        bg-white
+        shadow-sm
+        dark:bg-black
+      "
+    >
       {/* =====================================================
           TOP NAVBAR
       ===================================================== */}
 
-      <div className="container mx-auto px-4">
-        <div className="grid min-h-[72px] grid-cols-1 items-center gap-4 lg:grid-cols-3">
-          {/* =================================================
-              LOGO + STORE LOCATION
-          ================================================= */}
+      <div className="w-full">
+        <div
+          className="
+            mx-auto
+            w-full
+            max-w-[1600px]
+            px-3
+            sm:px-5
+            lg:px-6
+          "
+        >
+          <div
+            className="
+              grid
+              min-h-[72px]
+              w-full
+              min-w-0
+              grid-cols-1
+              items-center
+              gap-3
+              lg:grid-cols-[minmax(190px,auto)_minmax(250px,1fr)_minmax(250px,auto)]
+            "
+          >
+            {/* =================================================
+                LOGO + STORE
+            ================================================= */}
 
-          <div className="flex items-center gap-5">
-            <Link href="/" className="shrink-0">
-              <Image
-                src="/Image/logo.png"
-                alt="I-Technology"
-                width={150}
-                height={60}
-                priority
-                className="h-auto w-[130px] object-contain sm:w-[150px]"
-              />
-            </Link>
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              {/* LOGO */}
 
-            {/* STORE LOCATION */}
-
-            <Dialog>
-              <DialogTrigger
-                render={
-                  <Button
-                    variant="outline"
-                    className="hidden items-center gap-2 sm:flex"
-                  >
-                    <MapPinHouse className="size-4 text-[#0497D8]" />
-
-                    <span>Store Location</span>
-                  </Button>
-                }
-              />
-
-              <DialogContent className="w-[95%] max-w-[650px]">
-                <DialogHeader>
-                  <DialogTitle>Store Location</DialogTitle>
-
-                  <DialogDescription>
-                    Find our store location on Google Maps.
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="overflow-hidden rounded-lg">
-                  <iframe
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3451.0385874493927!2d31.3310175!3d30.1217093!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x145815b80eca7a8f%3A0x3cd44d697df321cf!2sI-Technology!5e0!3m2!1sar!2seg!4v1785959031557!5m2!1sar!2seg"
-                    width="600"
-                    height="450"
-                    loading="lazy"
-                    className="h-[350px] w-full border-0 sm:h-[450px]"
-                  />
-                </div>
-
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    className="bg-[#0497D8] hover:bg-[#0387c2]"
-                    onClick={() => {
-                      window.open(
-                        "https://www.google.com/maps/dir/?api=1&destination=30.1217093,31.3310175",
-                        "_blank"
-                      );
-                    }}
-                  >
-                    Go to Store
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {/* =================================================
-              SEARCH
-          ================================================= */}
-
-          <div className="hidden justify-center lg:flex">
-            <div className="w-full max-w-xl">
-              <NewSearch />
-            </div>
-          </div>
-
-          {/* =================================================
-              ACTIONS
-          ================================================= */}
-
-          <div className="flex items-center justify-end gap-3 sm:gap-5">
-            {/* DARK MODE */}
-
-            <ModeToggle />
-
-            {/* LANGUAGE */}
-
-            <div className="flex items-center gap-2">
-              <Switch
-                id="lang"
-                checked={isEnglish}
-                onCheckedChange={setIsEnglish}
-              />
-
-              {isEnglish && (
+              <Link
+                href="/"
+                className="shrink-0"
+              >
                 <Image
-                  src="/Image/us-flag.webp"
-                  width={20}
-                  height={20}
-                  alt="English"
-                  className="object-contain"
+                  src="/Image/logo.png"
+                  alt="I-Technology"
+                  width={150}
+                  height={60}
+                  priority
+                  className="
+                    h-auto
+                    w-[110px]
+                    object-contain
+                    sm:w-[125px]
+                    lg:w-[135px]
+                  "
                 />
-              )}
+              </Link>
+
+              {/* STORE LOCATION */}
+
+              <Dialog>
+                <DialogTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      className="
+                        hidden
+                        h-9
+                        shrink-0
+                        items-center
+                        gap-2
+                        whitespace-nowrap
+                        sm:flex
+                      "
+                    >
+                      <MapPinHouse className="size-4 text-[#0497D8]" />
+
+                      <span className="hidden lg:inline">
+                        Store Location
+                      </span>
+                    </Button>
+                  }
+                />
+
+                <DialogContent className="w-[95%] max-w-[650px]">
+                  <DialogHeader>
+                    <DialogTitle>
+                      Store Location
+                    </DialogTitle>
+
+                    <DialogDescription>
+                      Find our store location on
+                      Google Maps.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="overflow-hidden rounded-lg">
+                    <iframe
+                      src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3451.0385874493927!2d31.3310175!3d30.1217093!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x145815b80eca7a8f%3A0x3cd44d697df321cf!2sI-Technology!5e0!3m2!1sar!2seg!4v1785959031557!5m2!1sar!2seg"
+                      width="600"
+                      height="450"
+                      loading="lazy"
+                      className="
+                        h-[350px]
+                        w-full
+                        border-0
+                        sm:h-[450px]
+                      "
+                    />
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      className="
+                        bg-[#0497D8]
+                        hover:bg-[#0387c2]
+                      "
+                      onClick={() => {
+                        window.open(
+                          "https://www.google.com/maps/dir/?api=1&destination=30.1217093,31.3310175",
+                          "_blank"
+                        );
+                      }}
+                    >
+                      Go to Store
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
 
-            {/* WISHLIST */}
+            {/* =================================================
+                SEARCH
+            ================================================= */}
 
-            <Link
-              href="/wishlist"
-              aria-label="Wishlist"
-              className="transition hover:scale-110"
+            <div className="hidden min-w-0 justify-center lg:flex">
+              <div className="w-full max-w-2xl min-w-0">
+                <NewSearch />
+              </div>
+            </div>
+
+            {/* =================================================
+                ACTIONS
+            ================================================= */}
+
+            <div
+              className="
+                flex
+                min-w-0
+                items-center
+                justify-end
+                gap-2
+                sm:gap-3
+                lg:gap-4
+              "
             >
-              <Heart className="size-5 text-[#0497D8]" />
-            </Link>
+              {/* LANGUAGE */}
 
-            {/* CART */}
+              <div className="flex shrink-0 items-center gap-2">
+                <Switch
+                  id="lang"
+                  checked={isEnglish}
+                  onCheckedChange={setIsEnglish}
+                />
 
-            <Link
-              href="/cart"
-              aria-label="Shopping Cart"
-              className="transition hover:scale-110"
-            >
-              <ShoppingCart className="size-5 text-[#0497D8]" />
-            </Link>
+                {isEnglish && (
+                  <Image
+                    src="/Image/us-flag.webp"
+                    width={20}
+                    height={20}
+                    alt="English"
+                    className="object-contain"
+                  />
+                )}
+              </div>
 
-            {/* LOGIN */}
+              {/* WISHLIST */}
 
-            <Dialog>
-              <DialogTrigger
-                render={
-                  <Button
-                    variant="outline"
-                    className="hidden items-center gap-2 sm:flex"
+              <Link
+                href="/wishlist"
+                aria-label="Wishlist"
+                className="
+                  shrink-0
+                  transition
+                  hover:scale-110
+                "
+              >
+                <Heart className="size-5 text-[#0497D8]" />
+              </Link>
+
+              {/* =================================================
+                  CART
+              ================================================= */}
+
+              <Link
+                href="/cart"
+                aria-label="Shopping Cart"
+                className="
+                  relative
+                  flex
+                  shrink-0
+                  items-center
+                  justify-center
+                  transition
+                  hover:scale-110
+                "
+              >
+                <ShoppingCart className="size-5 text-[#0497D8]" />
+
+                {cartCount > 0 && (
+                  <span
+                    className="
+                      absolute
+                      -right-2.5
+                      -top-2.5
+                      flex
+                      h-4
+                      min-w-4
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-[#E53935]
+                      px-1
+                      text-[10px]
+                      font-bold
+                      leading-none
+                      text-white
+                    "
+                  >
+                    {cartCount > 99
+                      ? "99+"
+                      : cartCount}
+                  </span>
+                )}
+              </Link>
+
+              {/* =================================================
+                  AUTH
+              ================================================= */}
+
+              {status === "loading" ? (
+                /* LOADING */
+
+                <div
+                  className="
+                    hidden
+                    h-9
+                    w-24
+                    animate-pulse
+                    rounded-lg
+                    bg-gray-100
+                    sm:block
+                  "
+                />
+              ) : status === "authenticated" ? (
+                /* =================================================
+                   LOGGED IN USER
+                ================================================= */
+
+                <div className="group relative">
+                  {/* USER BUTTON */}
+
+                  <Link
+                    href="/account"
+                    className="
+                      hidden
+                      h-9
+                      shrink-0
+                      items-center
+                      gap-2
+                      rounded-lg
+                      border
+                      border-gray-200
+                      px-3
+                      text-sm
+                      font-medium
+                      text-gray-700
+                      transition
+                      hover:border-[#0497D8]
+                      hover:text-[#0497D8]
+                      sm:flex
+                    "
                   >
                     <User className="size-4" />
-                    Sign In
-                  </Button>
-                }
-              />
 
-              <DialogContent className="w-[95%] sm:max-w-[420px]">
-                <DialogHeader>
-                  <DialogTitle>Login</DialogTitle>
+                    <span className="max-w-[120px] truncate">
+                      {userName}
+                    </span>
 
-                  <DialogDescription>
-                    Welcome back 👋
-                  </DialogDescription>
-                </DialogHeader>
-
-                <FieldGroup>
-                  <Field>
-                    <Label htmlFor="email">Email</Label>
-
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="your@company.com"
+                    <ChevronDown
+                      className="
+                        size-3.5
+                        transition-transform
+                        duration-200
+                        group-hover:rotate-180
+                      "
                     />
-                  </Field>
+                  </Link>
 
-                  <Field>
-                    <Label htmlFor="password">Password</Label>
+                  {/* =================================================
+                      USER DROPDOWN
+                  ================================================= */}
 
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                    />
-                  </Field>
-
-                  <Button
-                    type="button"
-                    className="w-full bg-[#0497D8] hover:bg-[#0387c2]"
+                  <div
+                    className="
+                      invisible
+                      absolute
+                      right-0
+                      top-[calc(100%+8px)]
+                      z-[100]
+                      w-56
+                      translate-y-2
+                      rounded-xl
+                      border
+                      border-gray-100
+                      bg-white
+                      p-2
+                      opacity-0
+                      shadow-xl
+                      transition-all
+                      duration-150
+                      group-hover:visible
+                      group-hover:translate-y-0
+                      group-hover:opacity-100
+                    "
                   >
-                    Login
-                  </Button>
-                </FieldGroup>
+                    {/* USER INFO */}
 
-                <DialogFooter>
-                  <Button type="button" variant="outline" className="w-full">
-                    Sign Up
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                    <div
+                      className="
+                        mb-1
+                        border-b
+                        border-gray-100
+                        px-3
+                        pb-3
+                        pt-2
+                      "
+                    >
+                      <p className="truncate text-sm font-semibold text-gray-900">
+                        {userName}
+                      </p>
+
+                      <p className="mt-0.5 truncate text-xs text-gray-500">
+                        {session?.user?.email}
+                      </p>
+                    </div>
+
+                    {/* MY ACCOUNT */}
+
+                    <Link
+                      href="/account"
+                      className="
+                        flex
+                        items-center
+                        gap-3
+                        rounded-lg
+                        px-3
+                        py-2.5
+                        text-sm
+                        text-gray-700
+                        transition
+                        hover:bg-[#0497D8]/10
+                        hover:text-[#0497D8]
+                      "
+                    >
+                      <User className="size-4" />
+
+                      <span>
+                        My Account
+                      </span>
+                    </Link>
+
+                    {/* ORDERS */}
+
+                    <Link
+                      href="/account/orders"
+                      className="
+                        flex
+                        items-center
+                        gap-3
+                        rounded-lg
+                        px-3
+                        py-2.5
+                        text-sm
+                        text-gray-700
+                        transition
+                        hover:bg-[#0497D8]/10
+                        hover:text-[#0497D8]
+                      "
+                    >
+                      <Package className="size-4" />
+
+                      <span>
+                        My Orders
+                      </span>
+                    </Link>
+
+                    {/* WISHLIST */}
+
+                    <Link
+                      href="/wishlist"
+                      className="
+                        flex
+                        items-center
+                        gap-3
+                        rounded-lg
+                        px-3
+                        py-2.5
+                        text-sm
+                        text-gray-700
+                        transition
+                        hover:bg-[#0497D8]/10
+                        hover:text-[#0497D8]
+                      "
+                    >
+                      <Heart className="size-4" />
+
+                      <span>
+                        Wishlist
+                      </span>
+                    </Link>
+
+                    {/* DIVIDER */}
+
+                    <div className="my-1 h-px bg-gray-100" />
+
+                    {/* LOGOUT */}
+
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="
+                        flex
+                        w-full
+                        items-center
+                        gap-3
+                        rounded-lg
+                        px-3
+                        py-2.5
+                        text-left
+                        text-sm
+                        font-medium
+                        text-red-600
+                        transition
+                        hover:bg-red-50
+                      "
+                    >
+                      <LogOut className="size-4" />
+
+                      <span>
+                        Logout
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* =================================================
+                   LOGGED OUT
+                ================================================= */
+
+                <Dialog>
+                  <DialogTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        className="
+                          hidden
+                          h-9
+                          shrink-0
+                          items-center
+                          gap-2
+                          whitespace-nowrap
+                          sm:flex
+                        "
+                        onClick={() =>
+                          setAuthMode("login")
+                        }
+                      >
+                        <User className="size-4" />
+
+                        <span className="hidden lg:inline">
+                          Sign In
+                        </span>
+                      </Button>
+                    }
+                  />
+
+                  <DialogContent className="w-[95%] sm:max-w-[450px]">
+                    {/* =================================================
+                        LOGIN
+                    ================================================= */}
+
+                    {authMode === "login" ? (
+                      <>
+                        <DialogHeader>
+                          <DialogTitle>
+                            Welcome Back
+                          </DialogTitle>
+
+                          <DialogDescription>
+                            Sign in to your
+                            I-Technology account
+                          </DialogDescription>
+                        </DialogHeader>
+
+                        <LoginForm />
+
+                        <DialogFooter className="flex-col gap-2 sm:flex-col">
+                          <p className="text-center text-sm text-gray-500">
+                            Don't have an account?
+                          </p>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() =>
+                              setAuthMode(
+                                "register"
+                              )
+                            }
+                          >
+                            Create Account
+                          </Button>
+                        </DialogFooter>
+                      </>
+                    ) : (
+                      /* =================================================
+                         REGISTER
+                      ================================================= */
+
+                      <>
+                        <DialogHeader>
+                          <DialogTitle>
+                            Create Account
+                          </DialogTitle>
+
+                          <DialogDescription>
+                            Create your
+                            I-Technology account
+                          </DialogDescription>
+                        </DialogHeader>
+
+                        <RegisterForm />
+
+                        <DialogFooter className="flex-col gap-2 sm:flex-col">
+                          <p className="text-center text-sm text-gray-500">
+                            Already have an
+                            account?
+                          </p>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() =>
+                              setAuthMode(
+                                "login"
+                              )
+                            }
+                          >
+                            Sign In
+                          </Button>
+                        </DialogFooter>
+                      </>
+                    )}
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* =====================================================
-            MOBILE SEARCH
-        ===================================================== */}
+          {/* =====================================================
+              MOBILE / TABLET SEARCH
+          ===================================================== */}
 
-        <div className="pb-3 lg:hidden">
-          <NewSearch />
+          <div className="pb-3 lg:hidden">
+            <NewSearch />
+          </div>
         </div>
       </div>
 
       {/* =====================================================
-          CATEGORY NAVIGATION
+          CATEGORY NAVBAR
       ===================================================== */}
 
-      <div className="hidden border-t lg:block">
-        <div className="container mx-auto px-4">
-          <nav className="flex items-center overflow-x-auto">
-            {categories.map((category) =>
-              category.items ? (
-                <CategoryMenu
-                  key={category.name}
-                  category={category}
-                />
-              ) : (
-                <SimpleNavLink
-                  key={category.name}
-                  name={category.name}
-                  href={category.href}
-                />
-              )
-            )}
-
-            {/* =================================================
-                BRAND
-            ================================================= */}
-
-            <Link
-              href="/products?brand=1922"
-              className="px-3 py-1"
-            >
-              <div className="flex h-10 items-center rounded-lg bg-[#ec6c0380] px-3 transition hover:opacity-80">
-                <Image
-                  src="/Image/cropped-2022logo-small.png"
-                  alt="Brand"
-                  width={100}
-                  height={100}
-                  className=" w-auto object-contain"
-                />
+      <div className="w-full border-t">
+        <div
+          className="
+            mx-auto
+            w-full
+            max-w-[1600px]
+            px-3
+            sm:px-5
+            lg:px-6
+          "
+        >
+          <nav
+            className="
+              relative
+              flex
+              min-h-12
+              w-full
+              min-w-0
+              items-center
+              gap-1
+              overflow-visible
+            "
+          >
+            {loadingCategories ? (
+              <div
+                className="
+                  flex
+                  min-h-12
+                  w-full
+                  shrink-0
+                  items-center
+                  justify-center
+                "
+              >
+                <span className="text-xs text-gray-400">
+                  Loading categories...
+                </span>
               </div>
-            </Link>
+            ) : (
+              <>
+                {categoryTree.map(
+                  (category) => (
+                    <CategoryMenu
+                      key={category.id}
+                      category={category}
+                    />
+                  )
+                )}
+              </>
+            )}
           </nav>
         </div>
       </div>
@@ -442,66 +1051,241 @@ function CategoryMenu({
 }: {
   category: Category;
 }) {
-  return (
-    <NavigationMenu className="shrink-0 border-r">
-      <NavigationMenuList>
-        <NavigationMenuItem>
-          <NavigationMenuTrigger className="gap-1">
-            <Link href={category.href}>
-              {category.name}
-            </Link>
-          </NavigationMenuTrigger>
+  const hasChildren =
+    Array.isArray(category.children) &&
+    category.children.length > 0;
 
-          <NavigationMenuContent>
-            <div className="flex min-w-[230px] flex-col gap-1 p-2">
-              {category.items?.map((item) => (
-                <NavigationMenuLink
-                  key={item.name}
-                  render={
-                    <Link
-                      href={item.href}
-                      className="rounded-md px-3 py-2 text-sm transition hover:bg-muted"
-                    >
-                      {item.name}
-                    </Link>
-                  }
+  return (
+    <div className="group relative shrink-0">
+      {/* PARENT */}
+
+      <Link
+        href={`/products?category=${category.id}`}
+        title={decodeHtml(category.name)}
+        className="
+          flex
+          min-h-12
+          items-center
+          justify-center
+          gap-1
+          whitespace-nowrap
+          px-2
+          text-[13px]
+          font-medium
+          text-gray-700
+          transition-colors
+          hover:text-[#0497D8]
+          xl:px-3
+          dark:text-gray-200
+        "
+      >
+        <span>
+          {decodeHtml(category.name)}
+        </span>
+
+        {hasChildren && (
+          <ChevronDown
+            className="
+              size-3.5
+              transition-transform
+              duration-200
+              group-hover:rotate-180
+            "
+          />
+        )}
+      </Link>
+
+      {/* PARENT DROPDOWN */}
+
+      {hasChildren && (
+        <div
+          className="
+            invisible
+            absolute
+            left-0
+            top-full
+            z-[100]
+            w-[270px]
+            max-w-[calc(100vw-24px)]
+            translate-y-2
+            rounded-xl
+            border
+            border-gray-100
+            bg-white
+            p-2
+            opacity-0
+            shadow-2xl
+            transition-all
+            duration-150
+            group-hover:visible
+            group-hover:translate-y-0
+            group-hover:opacity-100
+            dark:border-gray-800
+            dark:bg-black
+          "
+        >
+          {/* Parent Header */}
+
+          <Link
+            href={`/products?category=${category.id}`}
+            className="
+              mb-1
+              flex
+              min-h-10
+              w-full
+              items-center
+              justify-between
+              rounded-lg
+              bg-gray-50
+              px-3
+              py-2
+              text-sm
+              font-semibold
+              text-gray-900
+              transition
+              hover:bg-[#0497D8]/10
+              hover:text-[#0497D8]
+              dark:bg-gray-900
+              dark:text-white
+            "
+          >
+            <span className="truncate">
+              {decodeHtml(category.name)}
+            </span>
+
+            <ChevronRight
+              className="
+                size-4
+                shrink-0
+                text-gray-400
+              "
+            />
+          </Link>
+
+          {/* Divider */}
+
+          <div
+            className="
+              my-1
+              h-px
+              bg-gray-100
+              dark:bg-gray-800
+            "
+          />
+
+          {/* SUB */}
+
+          <div className="flex flex-col">
+            {category.children?.map(
+              (child) => (
+                <NestedCategory
+                  key={child.id}
+                  category={child}
                 />
-              ))}
-            </div>
-          </NavigationMenuContent>
-        </NavigationMenuItem>
-      </NavigationMenuList>
-    </NavigationMenu>
+              )
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
 /* =========================================================
-   SIMPLE NAV LINK
+   NESTED CATEGORY
 ========================================================= */
 
-function SimpleNavLink({
-  name,
-  href,
+function NestedCategory({
+  category,
 }: {
-  name: string;
-  href: string;
+  category: Category;
 }) {
+  const hasChildren =
+    Array.isArray(category.children) &&
+    category.children.length > 0;
+
   return (
-    <NavigationMenu className="shrink-0 border-r">
-      <NavigationMenuList>
-        <NavigationMenuItem>
-          <NavigationMenuLink
-            render={
-              <Link
-                href={href}
-                className="inline-flex h-10 items-center px-4 text-sm font-medium transition hover:text-[#0497D8]"
-              >
-                {name}
-              </Link>
-            }
+    <div className="group/sub relative w-full">
+      {/* CURRENT SUB */}
+
+      <Link
+        href={`/products?category=${category.id}`}
+        title={decodeHtml(category.name)}
+        className="
+          flex
+          min-h-10
+          w-full
+          items-center
+          justify-between
+          gap-3
+          rounded-lg
+          px-3
+          py-2
+          text-sm
+          text-gray-700
+          transition-colors
+          hover:bg-[#0497D8]/10
+          hover:text-[#0497D8]
+          dark:text-gray-200
+        "
+      >
+        <span className="min-w-0 truncate">
+          {decodeHtml(category.name)}
+        </span>
+
+        {hasChildren && (
+          <ChevronRight
+            className="
+              size-4
+              shrink-0
+              text-gray-400
+              transition-transform
+              duration-150
+              group-hover/sub:translate-x-0.5
+            "
           />
-        </NavigationMenuItem>
-      </NavigationMenuList>
-    </NavigationMenu>
+        )}
+      </Link>
+
+      {/* SUB CHILD DROPDOWN */}
+
+      {hasChildren && (
+        <div
+          className="
+            invisible
+            absolute
+            left-[calc(100%+6px)]
+            top-0
+            z-[110]
+            w-[270px]
+            max-w-[calc(100vw-24px)]
+            translate-x-2
+            rounded-xl
+            border
+            border-gray-100
+            bg-white
+            p-2
+            opacity-0
+            shadow-2xl
+            transition-all
+            duration-150
+            group-hover/sub:visible
+            group-hover/sub:translate-x-0
+            group-hover/sub:opacity-100
+            dark:border-gray-800
+            dark:bg-black
+          "
+        >
+          {category.children?.map(
+            (child) => (
+              <NestedCategory
+                key={child.id}
+                category={child}
+              />
+            )
+          )}
+        </div>
+      )}
+    </div>
   );
 }

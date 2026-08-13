@@ -1,17 +1,23 @@
 import type { Metadata } from "next";
-import localFont from 'next/font/local'
-// import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
+
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
+
 import Navbar from "@/components/navbar/Navbar";
-import { ThemeProvider } from "@/components/theme-provider"
 import Slider from "@/components/Slider/Slider";
 import Info from "@/components/Info/Info";
 import Trend from "@/components/Trend/Trend";
 import Footer from "@/components/footer/Footer";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+import { CartProvider } from "@/context/CartContext";
+import SessionProviderWrapper from "@/components/providers/SessionProvider";
+
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
 
 const inter = localFont({
   src: "./fonts/Inter-VariableFont_opsz,wght.ttf",
@@ -19,33 +25,47 @@ const inter = localFont({
   display: "swap",
 });
 
-
 export const metadata: Metadata = {
-  title: "I-Tehchnology",
+  title: "I-Technology",
   description: "ECommerce",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", inter.variable, "font-sans", geist.variable)}
+      className={cn(
+        "h-full",
+        "antialiased",
+        inter.variable,
+        "font-sans",
+        geist.variable
+      )}
       suppressHydrationWarning
     >
       <body className="flex min-h-screen flex-col">
-        {/* <ThemeProvider attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange 
-            > */}
-              <Navbar/>
-       <div className="flex-1">
-      {children}
-    </div>
-        
-        <Footer/>
-        {/* </ThemeProvider> */}
-        </body>
+
+        {/* Session Provider لازم يكون فوق CartProvider */}
+        <SessionProviderWrapper>
+
+          {/* CartProvider بيقدر يستخدم useSession هنا */}
+          <CartProvider>
+
+            <Navbar />
+
+            <div className="flex-1">
+              {children}
+            </div>
+
+          </CartProvider>
+
+        </SessionProviderWrapper>
+
+        <Footer />
+
+      </body>
     </html>
   );
 }
