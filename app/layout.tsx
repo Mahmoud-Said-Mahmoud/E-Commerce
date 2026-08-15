@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
 
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
-
+import { WishlistProvider } from "@/context/WishlistContext";
 import Navbar from "@/components/navbar/Navbar";
 import Slider from "@/components/Slider/Slider";
 import Info from "@/components/Info/Info";
@@ -47,21 +48,18 @@ export default function RootLayout({
     >
       <body className="flex min-h-screen flex-col">
 
-        {/* Session Provider لازم يكون فوق CartProvider */}
-        <SessionProviderWrapper>
+       <SessionProviderWrapper>
+  <CartProvider>
+    <WishlistProvider>
+      <Navbar />
 
-          {/* CartProvider بيقدر يستخدم useSession هنا */}
-          <CartProvider>
-
-            <Navbar />
-
-            <div className="flex-1">
-              {children}
-            </div>
-
-          </CartProvider>
-
-        </SessionProviderWrapper>
+      <div className="flex-1">
+        {children}
+          <Toaster position="top-right" richColors />
+      </div>
+    </WishlistProvider>
+  </CartProvider>
+</SessionProviderWrapper>
 
         <Footer />
 

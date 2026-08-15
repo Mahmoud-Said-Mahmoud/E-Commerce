@@ -30,9 +30,11 @@ import {
   Check,
   ArrowRight,
   Tag,
+  Heart,
 } from "lucide-react";
 
 import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
 
 const END_DATE = new Date(
   "2026-08-15T23:59:59"
@@ -168,11 +170,13 @@ export default function Todays() {
                 <span className="text-xs font-semibold uppercase tracking-wide text-red-500">
                   Sale
                 </span>
+
               </div>
 
               <span className="rounded-full bg-[#0497D8]/10 px-3 py-1 text-xs font-semibold text-[#0497D8]">
                 Today
               </span>
+
             </div>
 
             {/* TITLE */}
@@ -402,10 +406,12 @@ export default function Todays() {
                 bg-white
                 shadow-sm
               ">
+
                 <Tag
                   size={22}
                   className="text-gray-400"
                 />
+
               </div>
 
               <h4 className="mt-4 font-semibold text-gray-900">
@@ -514,7 +520,19 @@ function ProductCard({
 }: {
   product: ProductI;
 }) {
+
   const { addToCart } = useCart();
+
+  /*
+   * =======================================================
+   * WISHLIST
+   * =======================================================
+   */
+
+  const {
+    isInWishlist,
+    toggleWishlist,
+  } = useWishlist();
 
   const [added, setAdded] = useState(false);
 
@@ -552,6 +570,7 @@ function ProductCard({
   const handleAddToCart = (
     e: React.MouseEvent<HTMLButtonElement>
   ) => {
+
     e.preventDefault();
     e.stopPropagation();
 
@@ -563,6 +582,24 @@ function ProductCard({
       setAdded(false);
     }, 1500);
   };
+
+  /* =======================================================
+     WISHLIST
+  ======================================================= */
+
+  const handleWishlist = (
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => {
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    toggleWishlist(product);
+  };
+
+  const wishlistActive = isInWishlist(
+    product.id
+  );
 
   return (
     <CarouselItem
@@ -631,6 +668,48 @@ function ProductCard({
               "
             />
 
+            {/* =================================================
+                WISHLIST BUTTON
+            ================================================== */}
+
+            <button
+              type="button"
+              onClick={handleWishlist}
+              aria-label={
+                wishlistActive
+                  ? "Remove from wishlist"
+                  : "Add to wishlist"
+              }
+              className="
+                absolute
+                right-3
+                top-3
+                z-20
+                flex
+                h-9
+                w-9
+                items-center
+                justify-center
+                rounded-full
+                bg-white
+                shadow-md
+                transition-all
+                duration-200
+                hover:scale-105
+              "
+            >
+
+              <Heart
+                size={18}
+                className={
+                  wishlistActive
+                    ? "fill-red-500 text-red-500"
+                    : "text-gray-500"
+                }
+              />
+
+            </button>
+
             {/* SALE BADGE */}
 
             <div className="absolute left-3 top-3 flex items-center gap-1.5">
@@ -668,7 +747,12 @@ function ProductCard({
 
           {/* INFO */}
 
-          <CardHeader className="space-y-3 px-4 pb-3 pt-4">
+          <CardHeader className="
+            space-y-3
+            px-4
+            pb-3
+            pt-4
+          ">
 
             {/* PRODUCT NAME */}
 
@@ -687,16 +771,29 @@ function ProductCard({
 
               {/* PRICE */}
 
-              <div className="flex items-end justify-between gap-2">
+              <div className="
+                flex
+                items-end
+                justify-between
+                gap-2
+              ">
 
                 <div className="flex flex-col">
 
-                  <span className="text-lg font-bold text-gray-900">
+                  <span className="
+                    text-lg
+                    font-bold
+                    text-gray-900
+                  ">
                     {product.price} EGP
                   </span>
 
                   {product.regular_price && (
-                    <span className="text-xs text-gray-400 line-through">
+                    <span className="
+                      text-xs
+                      text-gray-400
+                      line-through
+                    ">
                       {product.regular_price} EGP
                     </span>
                   )}
@@ -727,6 +824,7 @@ function ProductCard({
                   text-[11px]
                   text-gray-500
                 ">
+
                   <LuShieldCheck
                     size={14}
                     className="shrink-0 text-[#0497D8]"
@@ -735,6 +833,7 @@ function ProductCard({
                   <span>
                     Secure payment with Paymob
                   </span>
+
                 </div>
 
                 <div className="
@@ -744,6 +843,7 @@ function ProductCard({
                   text-[11px]
                   text-gray-500
                 ">
+
                   <FaShippingFast
                     size={13}
                     className="shrink-0 text-[#0497D8]"
@@ -752,6 +852,7 @@ function ProductCard({
                   <span>
                     Delivery with Bosta
                   </span>
+
                 </div>
 
               </div>

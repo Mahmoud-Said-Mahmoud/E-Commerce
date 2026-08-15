@@ -22,6 +22,135 @@ export default function LoginForm({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  /* =========================================================
+     SYNC LOCAL CART
+  ========================================================= */
+
+  async function syncLocalCart() {
+    try {
+      const storedCart = localStorage.getItem("cart");
+
+      // No local cart
+      if (!storedCart) {
+        return true;
+      }
+
+      const cart = JSON.parse(storedCart);
+
+      // Empty cart
+      if (!Array.isArray(cart) || cart.length === 0) {
+        localStorage.removeItem("cart");
+        return true;
+      }
+
+      const response = await fetch("/api/cart/sync", {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          items: cart,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(
+          "Cart sync failed:",
+          await response.text()
+        );
+
+        return false;
+      }
+
+      // Only remove local cart AFTER successful sync
+      localStorage.removeItem("cart");
+
+      return true;
+    } catch (error) {
+      console.error(
+        "Local cart sync error:",
+        error
+      );
+
+      return false;
+    }
+  }
+
+  /* =========================================================
+     SYNC LOCAL WISHLIST
+  ========================================================= */
+
+  async function syncLocalWishlist() {
+    try {
+      const storedWishlist =
+        localStorage.getItem("wishlist");
+
+      // No local wishlist
+      if (!storedWishlist) {
+        return true;
+      }
+
+      const wishlist = JSON.parse(
+        storedWishlist
+      );
+
+      // Empty wishlist
+      if (
+        !Array.isArray(wishlist) ||
+        wishlist.length === 0
+      ) {
+        localStorage.removeItem("wishlist");
+        return true;
+      }
+
+      const response = await fetch(
+        "/api/wishlist/sync",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            items: wishlist,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        console.error(
+          "Wishlist sync failed:",
+          await response.text()
+        );
+
+        return false;
+      }
+
+      // Only remove local wishlist
+      // AFTER successful sync
+      localStorage.removeItem(
+        "wishlist"
+      );
+
+      return true;
+    } catch (error) {
+      console.error(
+        "Local wishlist sync error:",
+        error
+      );
+
+      return false;
+    }
+  }
+
+  /* =========================================================
+     LOGIN
+  ========================================================= */
+
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
@@ -32,6 +161,10 @@ export default function LoginForm({
     setLoading(true);
 
     try {
+      /* =====================================================
+         AUTHENTICATION
+      ===================================================== */
+
       const result = await signIn(
         "credentials",
         {
@@ -46,10 +179,15 @@ export default function LoginForm({
         result
       );
 
+      /* =====================================================
+         LOGIN ERROR
+      ===================================================== */
+
       if (!result) {
         setError(
           "Something went wrong."
         );
+
         return;
       }
 
@@ -66,17 +204,80 @@ export default function LoginForm({
         return;
       }
 
-      /*
-       * Login successful
-       */
+      /* =====================================================
+         LOGIN SUCCESS
+      ===================================================== */
+
+      console.log(
+        "LOGIN SUCCESSFUL"
+      );
+
+      /* =====================================================
+         SYNC LOCAL CART
+      ===================================================== */
+
+      const cartSynced =
+        await syncLocalCart();
+
+      /* =====================================================
+         SYNC LOCAL WISHLIST
+      ===================================================== */
+
+      const wishlistSynced =
+        await syncLocalWishlist();
+
+      /* =====================================================
+         CHECK SYNC RESULT
+      ===================================================== */
+
+      if (
+        !cartSynced ||
+        !wishlistSynced
+      ) {
+        console.warn(
+          "Login successful, but some local data could not be synced."
+        );
+
+        setSuccess(
+          "Login successful!"
+        );
+
+        /*
+         * We DO NOT remove failed local data.
+         *
+         * This is intentional.
+         *
+         * If the API failed, the local cart/wishlist
+         * remains available so the user doesn't lose data.
+         */
+
+        await new Promise(
+          (resolve) =>
+            setTimeout(resolve, 500)
+        );
+
+        onSuccess?.();
+
+        window.location.reload();
+
+        return;
+      }
+
+      /* =====================================================
+         EVERYTHING SUCCESSFUL
+      ===================================================== */
+
+      console.log(
+        "Cart and Wishlist synced successfully."
+      );
 
       setSuccess(
         "Login successful!"
       );
 
       /*
-       * Give NextAuth time to update
-       * the client session.
+       * Give NextAuth a little time to
+       * update the client session.
        */
 
       await new Promise(
@@ -84,12 +285,15 @@ export default function LoginForm({
           setTimeout(resolve, 500)
       );
 
+      /* =====================================================
+         CALLBACK
+      ===================================================== */
+
       onSuccess?.();
 
-      /*
-       * Refresh the page so Navbar
-       * gets the authenticated session.
-       */
+      /* =====================================================
+         REFRESH
+      ===================================================== */
 
       window.location.reload();
     } catch (error) {
@@ -111,6 +315,10 @@ export default function LoginForm({
       onSubmit={handleSubmit}
       className="space-y-5"
     >
+      {/* =====================================================
+          EMAIL
+      ===================================================== */}
+
       <div>
         <Label
           htmlFor="login-email"
@@ -131,6 +339,10 @@ export default function LoginForm({
           required
         />
       </div>
+
+      {/* =====================================================
+          PASSWORD
+      ===================================================== */}
 
       <div>
         <Label
@@ -153,17 +365,47 @@ export default function LoginForm({
         />
       </div>
 
+      {/* =====================================================
+          ERROR
+      ===================================================== */}
+
       {error && (
-        <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+        <div
+          className="
+            rounded-lg
+            bg-red-50
+            px-3
+            py-2
+            text-sm
+            text-red-600
+          "
+        >
           {error}
         </div>
       )}
 
+      {/* =====================================================
+          SUCCESS
+      ===================================================== */}
+
       {success && (
-        <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-600">
+        <div
+          className="
+            rounded-lg
+            bg-green-50
+            px-3
+            py-2
+            text-sm
+            text-green-600
+          "
+        >
           {success}
         </div>
       )}
+
+      {/* =====================================================
+          SUBMIT
+      ===================================================== */}
 
       <Button
         type="submit"
@@ -180,6 +422,7 @@ export default function LoginForm({
         {loading ? (
           <>
             <Loader2 className="size-4 animate-spin" />
+
             Logging in...
           </>
         ) : (

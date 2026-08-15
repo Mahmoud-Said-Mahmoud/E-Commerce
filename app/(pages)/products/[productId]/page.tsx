@@ -4,7 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent,
+} from "react";
 
 import {
   ChevronDown,
@@ -12,6 +17,7 @@ import {
   SearchX,
   SlidersHorizontal,
   X,
+  Heart,
 } from "lucide-react";
 
 import {
@@ -32,7 +38,7 @@ import {
 
 import {
   productApi,
-  ProductFilters,
+  type ProductFilters,
 } from "@/service/product";
 
 import type {
@@ -44,6 +50,8 @@ import type { BrandI } from "@/interface/brand";
 
 import { FaShippingFast } from "react-icons/fa";
 import { LuShieldCheck } from "react-icons/lu";
+
+import { useWishlist } from "@/context/WishlistContext";
 
 /* =========================================================
    TYPES
@@ -71,14 +79,6 @@ export default function ProductsPage() {
 
   /* =======================================================
      CATEGORY
-
-     Example:
-
-     /products?category=15
-
-     or
-
-     /products?category=15,20
   ======================================================= */
 
   const selectedCategories = useMemo(() => {
@@ -128,7 +128,7 @@ export default function ProductsPage() {
     searchParams.get("sort") || "relevance";
 
   /* =======================================================
-     STATE
+     PRODUCTS STATE
   ======================================================= */
 
   const [products, setProducts] =
@@ -142,6 +142,10 @@ export default function ProductsPage() {
 
   const [loading, setLoading] =
     useState(true);
+
+  /* =======================================================
+     FILTER STATE
+  ======================================================= */
 
   const [filtersLoading, setFiltersLoading] =
     useState(true);
@@ -164,6 +168,16 @@ export default function ProductsPage() {
 
   const [localMaxPrice, setLocalMaxPrice] =
     useState(maxPrice);
+
+  /* =======================================================
+     WISHLIST
+  ======================================================= */
+
+  const {
+    wishlist,
+    addToWishlist,
+    removeFromWishlist,
+  } = useWishlist();
 
   /* =======================================================
      SYNC PRICE WITH URL
@@ -201,7 +215,9 @@ export default function ProductsPage() {
         const data: FiltersResponse =
           await response.json();
 
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
 
         setCategories(
           data.categories || []
@@ -236,20 +252,6 @@ export default function ProductsPage() {
 
   /* =======================================================
      GET PRODUCTS
-
-     هنا أهم جزء
-
-     لو URL:
-
-     /products?category=15
-
-     هيتم إرسال:
-
-     {
-       category: "15"
-     }
-
-     إلى productApi
   ======================================================= */
 
   useEffect(() => {
@@ -296,18 +298,15 @@ export default function ProductsPage() {
               : undefined,
         };
 
-        console.log(
-          "Products filters:",
-          filters
-        );
-
         const result =
           await productApi(
             page,
             filters
           );
 
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
 
         setProducts(
           result.data || []
@@ -380,10 +379,6 @@ export default function ProductsPage() {
         }
       }
     );
-
-    /*
-      Every new filter starts from page 1
-    */
 
     params.set("page", "1");
 
@@ -639,7 +634,18 @@ export default function ProductsPage() {
             onClick={() =>
               setMobileFilters(true)
             }
-            className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium lg:hidden"
+            className="
+              flex
+              items-center
+              gap-2
+              rounded-lg
+              border
+              px-4
+              py-2
+              text-sm
+              font-medium
+              lg:hidden
+            "
           >
             <SlidersHorizontal
               size={17}
@@ -663,66 +669,45 @@ export default function ProductsPage() {
           <aside className="hidden lg:block">
 
             <FilterContent
-              categories={
-                categories
-              }
-
-              brands={
-                brands
-              }
-
+              categories={categories}
+              brands={brands}
               selectedCategories={
                 selectedCategories
               }
-
               selectedBrands={
                 selectedBrands
               }
-
               minPrice={
                 localMinPrice
               }
-
               maxPrice={
                 localMaxPrice
               }
-
-              stock={
-                stock
-              }
-
+              stock={stock}
               filtersLoading={
                 filtersLoading
               }
-
               setMinPrice={
                 setLocalMinPrice
               }
-
               setMaxPrice={
                 setLocalMaxPrice
               }
-
               toggleCategory={
                 toggleCategory
               }
-
               toggleBrand={
                 toggleBrand
               }
-
               toggleStock={
                 toggleStock
               }
-
               applyPrice={
                 applyPrice
               }
-
               clearFilters={
                 clearFilters
               }
-
               hasFilters={
                 hasFilters
               }
@@ -757,7 +742,18 @@ export default function ProductsPage() {
                       e.target.value
                     )
                   }
-                  className="h-10 appearance-none rounded-lg border bg-white pl-3 pr-9 text-sm outline-none focus:border-[#0497D8]"
+                  className="
+                    h-10
+                    appearance-none
+                    rounded-lg
+                    border
+                    bg-white
+                    pl-3
+                    pr-9
+                    text-sm
+                    outline-none
+                    focus:border-[#0497D8]
+                  "
                 >
 
                   <option value="relevance">
@@ -780,14 +776,23 @@ export default function ProductsPage() {
 
                 <ChevronDown
                   size={15}
-                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                  className="
+                    pointer-events-none
+                    absolute
+                    right-3
+                    top-1/2
+                    -translate-y-1/2
+                    text-gray-500
+                  "
                 />
 
               </div>
 
             </div>
 
-            {/* LOADING */}
+            {/* =================================================
+                LOADING
+            ================================================= */}
 
             {loading ? (
 
@@ -810,7 +815,13 @@ export default function ProductsPage() {
 
                 {/* PRODUCT GRID */}
 
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+                <div className="
+                  grid
+                  grid-cols-2
+                  gap-4
+                  sm:grid-cols-3
+                  xl:grid-cols-4
+                ">
 
                   {products.map(
                     (product) => (
@@ -822,6 +833,15 @@ export default function ProductsPage() {
                         product={
                           product
                         }
+                        wishlist={
+                          wishlist
+                        }
+                        addToWishlist={
+                          addToWishlist
+                        }
+                        removeFromWishlist={
+                          removeFromWishlist
+                        }
                       />
 
                     )
@@ -829,7 +849,9 @@ export default function ProductsPage() {
 
                 </div>
 
-                {/* PAGINATION */}
+                {/* =================================================
+                    PAGINATION
+                ================================================= */}
 
                 {totalPages > 1 && (
 
@@ -852,14 +874,14 @@ export default function ProductsPage() {
                                   )
                                 : "#"
                             }
-
                             className={
                               page <= 1
                                 ? "pointer-events-none opacity-40"
                                 : ""
                             }
-
-                            onClick={(e) => {
+                            onClick={(
+                              e
+                            ) => {
 
                               if (
                                 page <=
@@ -874,13 +896,12 @@ export default function ProductsPage() {
                               changePage(
                                 page - 1
                               );
-
                             }}
                           />
 
                         </PaginationItem>
 
-                        {/* PAGES */}
+                        {/* PAGE NUMBERS */}
 
                         {pages.map(
                           (
@@ -898,20 +919,19 @@ export default function ProductsPage() {
                                   searchParams,
                                   pageNumber
                                 )}
-
                                 isActive={
                                   page ===
                                   pageNumber
                                 }
-
-                                onClick={(e) => {
+                                onClick={(
+                                  e
+                                ) => {
 
                                   e.preventDefault();
 
                                   changePage(
                                     pageNumber
                                   );
-
                                 }}
                               >
                                 {
@@ -938,15 +958,15 @@ export default function ProductsPage() {
                                   )
                                 : "#"
                             }
-
                             className={
                               page >=
                               totalPages
                                 ? "pointer-events-none opacity-40"
                                 : ""
                             }
-
-                            onClick={(e) => {
+                            onClick={(
+                              e
+                            ) => {
 
                               if (
                                 page >=
@@ -961,7 +981,6 @@ export default function ProductsPage() {
                               changePage(
                                 page + 1
                               );
-
                             }}
                           />
 
@@ -996,7 +1015,11 @@ export default function ProductsPage() {
           {/* OVERLAY */}
 
           <div
-            className="absolute inset-0 bg-black/30"
+            className="
+              absolute
+              inset-0
+              bg-black/30
+            "
             onClick={() =>
               setMobileFilters(
                 false
@@ -1006,9 +1029,25 @@ export default function ProductsPage() {
 
           {/* DRAWER */}
 
-          <div className="absolute bottom-0 left-0 right-0 max-h-[90vh] overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl">
+          <div className="
+            absolute
+            bottom-0
+            left-0
+            right-0
+            max-h-[90vh]
+            overflow-y-auto
+            rounded-t-2xl
+            bg-white
+            p-5
+            shadow-2xl
+          ">
 
-            <div className="mb-6 flex items-center justify-between">
+            <div className="
+              mb-6
+              flex
+              items-center
+              justify-between
+            ">
 
               <h2 className="text-lg font-semibold">
                 Filters
@@ -1021,7 +1060,11 @@ export default function ProductsPage() {
                     false
                   )
                 }
-                className="rounded-full p-2 hover:bg-gray-100"
+                className="
+                  rounded-full
+                  p-2
+                  hover:bg-gray-100
+                "
               >
                 <X size={20} />
               </button>
@@ -1029,66 +1072,45 @@ export default function ProductsPage() {
             </div>
 
             <FilterContent
-              categories={
-                categories
-              }
-
-              brands={
-                brands
-              }
-
+              categories={categories}
+              brands={brands}
               selectedCategories={
                 selectedCategories
               }
-
               selectedBrands={
                 selectedBrands
               }
-
               minPrice={
                 localMinPrice
               }
-
               maxPrice={
                 localMaxPrice
               }
-
-              stock={
-                stock
-              }
-
+              stock={stock}
               filtersLoading={
                 filtersLoading
               }
-
               setMinPrice={
                 setLocalMinPrice
               }
-
               setMaxPrice={
                 setLocalMaxPrice
               }
-
               toggleCategory={
                 toggleCategory
               }
-
               toggleBrand={
                 toggleBrand
               }
-
               toggleStock={
                 toggleStock
               }
-
               applyPrice={
                 applyPrice
               }
-
               clearFilters={
                 clearFilters
               }
-
               hasFilters={
                 hasFilters
               }
@@ -1101,7 +1123,16 @@ export default function ProductsPage() {
                   false
                 )
               }
-              className="mt-8 h-11 w-full rounded-lg bg-[#0497D8] font-medium text-white hover:bg-[#0387c2]"
+              className="
+                mt-8
+                h-11
+                w-full
+                rounded-lg
+                bg-[#0497D8]
+                font-medium
+                text-white
+                hover:bg-[#0387c2]
+              "
             >
               Apply Filters
             </button>
@@ -1117,7 +1148,7 @@ export default function ProductsPage() {
 }
 
 /* =========================================================
-   FILTER CONTENT TYPES
+   FILTER TYPES
 ========================================================= */
 
 interface FilterProps {
@@ -1184,9 +1215,17 @@ function FilterContent({
   return (
     <div className="space-y-8">
 
-      {/* FILTER TITLE */}
+      {/* =================================================
+          TITLE
+      ================================================= */}
 
-      <div className="flex items-center justify-between border-b pb-5">
+      <div className="
+        flex
+        items-center
+        justify-between
+        border-b
+        pb-5
+      ">
 
         <div className="flex items-center gap-2">
 
@@ -1205,7 +1244,12 @@ function FilterContent({
             onClick={
               clearFilters
             }
-            className="text-xs font-medium text-[#0497D8] hover:underline"
+            className="
+              text-xs
+              font-medium
+              text-[#0497D8]
+              hover:underline
+            "
           >
             Clear all
           </button>
@@ -1214,11 +1258,18 @@ function FilterContent({
 
       </div>
 
-      {/* CATEGORY */}
+      {/* =================================================
+          CATEGORY
+      ================================================= */}
 
       <div>
 
-        <h3 className="mb-4 text-sm font-semibold text-gray-900">
+        <h3 className="
+          mb-4
+          text-sm
+          font-semibold
+          text-gray-900
+        ">
           Category
         </h3>
 
@@ -1234,7 +1285,12 @@ function FilterContent({
 
         ) : (
 
-          <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+          <div className="
+            max-h-64
+            space-y-3
+            overflow-y-auto
+            pr-1
+          ">
 
             {categories.map(
               (category) => {
@@ -1250,7 +1306,14 @@ function FilterContent({
                     key={
                       category.id
                     }
-                    className="flex cursor-pointer items-center gap-3 text-sm text-gray-600"
+                    className="
+                      flex
+                      cursor-pointer
+                      items-center
+                      gap-3
+                      text-sm
+                      text-gray-600
+                    "
                   >
 
                     <input
@@ -1263,7 +1326,14 @@ function FilterContent({
                           category.id
                         )
                       }
-                      className="h-4 w-4 rounded border-gray-300 text-[#0497D8] focus:ring-[#0497D8]"
+                      className="
+                        h-4
+                        w-4
+                        rounded
+                        border-gray-300
+                        text-[#0497D8]
+                        focus:ring-[#0497D8]
+                      "
                     />
 
                     <span className="flex-1">
@@ -1284,11 +1354,18 @@ function FilterContent({
 
       </div>
 
-      {/* BRAND */}
+      {/* =================================================
+          BRAND
+      ================================================= */}
 
       <div>
 
-        <h3 className="mb-4 text-sm font-semibold text-gray-900">
+        <h3 className="
+          mb-4
+          text-sm
+          font-semibold
+          text-gray-900
+        ">
           Brand
         </h3>
 
@@ -1304,7 +1381,12 @@ function FilterContent({
 
         ) : (
 
-          <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+          <div className="
+            max-h-64
+            space-y-3
+            overflow-y-auto
+            pr-1
+          ">
 
             {brands.map(
               (brand) => {
@@ -1320,7 +1402,14 @@ function FilterContent({
                     key={
                       brand.id
                     }
-                    className="flex cursor-pointer items-center gap-3 text-sm text-gray-600"
+                    className="
+                      flex
+                      cursor-pointer
+                      items-center
+                      gap-3
+                      text-sm
+                      text-gray-600
+                    "
                   >
 
                     <input
@@ -1333,7 +1422,14 @@ function FilterContent({
                           brand.id
                         )
                       }
-                      className="h-4 w-4 rounded border-gray-300 text-[#0497D8] focus:ring-[#0497D8]"
+                      className="
+                        h-4
+                        w-4
+                        rounded
+                        border-gray-300
+                        text-[#0497D8]
+                        focus:ring-[#0497D8]
+                      "
                     />
 
                     <span className="flex-1">
@@ -1354,11 +1450,18 @@ function FilterContent({
 
       </div>
 
-      {/* PRICE */}
+      {/* =================================================
+          PRICE
+      ================================================= */}
 
       <div>
 
-        <h3 className="mb-4 text-sm font-semibold text-gray-900">
+        <h3 className="
+          mb-4
+          text-sm
+          font-semibold
+          text-gray-900
+        ">
           Price
         </h3>
 
@@ -1383,7 +1486,16 @@ function FilterContent({
 
             }}
             placeholder="Min"
-            className="h-10 w-full rounded-lg border px-3 text-sm outline-none focus:border-[#0497D8]"
+            className="
+              h-10
+              w-full
+              rounded-lg
+              border
+              px-3
+              text-sm
+              outline-none
+              focus:border-[#0497D8]
+            "
           />
 
           <input
@@ -1405,7 +1517,16 @@ function FilterContent({
 
             }}
             placeholder="Max"
-            className="h-10 w-full rounded-lg border px-3 text-sm outline-none focus:border-[#0497D8]"
+            className="
+              h-10
+              w-full
+              rounded-lg
+              border
+              px-3
+              text-sm
+              outline-none
+              focus:border-[#0497D8]
+            "
           />
 
         </div>
@@ -1415,22 +1536,49 @@ function FilterContent({
           onClick={
             applyPrice
           }
-          className="mt-3 w-full rounded-lg border border-[#0497D8] py-2 text-sm font-medium text-[#0497D8] transition hover:bg-[#0497D8] hover:text-white"
+          className="
+            mt-3
+            w-full
+            rounded-lg
+            border
+            border-[#0497D8]
+            py-2
+            text-sm
+            font-medium
+            text-[#0497D8]
+            transition
+            hover:bg-[#0497D8]
+            hover:text-white
+          "
         >
           Apply Price
         </button>
 
       </div>
 
-      {/* AVAILABILITY */}
+      {/* =================================================
+          AVAILABILITY
+      ================================================= */}
 
       <div>
 
-        <h3 className="mb-4 text-sm font-semibold text-gray-900">
+        <h3 className="
+          mb-4
+          text-sm
+          font-semibold
+          text-gray-900
+        ">
           Availability
         </h3>
 
-        <label className="flex cursor-pointer items-center gap-3 text-sm text-gray-600">
+        <label className="
+          flex
+          cursor-pointer
+          items-center
+          gap-3
+          text-sm
+          text-gray-600
+        ">
 
           <input
             type="checkbox"
@@ -1438,7 +1586,14 @@ function FilterContent({
             onChange={
               toggleStock
             }
-            className="h-4 w-4 rounded border-gray-300 text-[#0497D8] focus:ring-[#0497D8]"
+            className="
+              h-4
+              w-4
+              rounded
+              border-gray-300
+              text-[#0497D8]
+              focus:ring-[#0497D8]
+            "
           />
 
           <span>
@@ -1459,20 +1614,136 @@ function FilterContent({
 
 function ProductCard({
   product,
+  wishlist,
+  addToWishlist,
+  removeFromWishlist,
 }: {
   product: ProductI;
+
+  wishlist: ProductI[];
+
+  addToWishlist: (
+    product: ProductI
+  ) => void;
+
+  removeFromWishlist: (
+    productId: number
+  ) => void;
 }) {
   const image =
     product.images?.[0];
 
-  return (
-    <Card className="group relative overflow-hidden pt-0 transition duration-200 hover:-translate-y-1 hover:shadow-lg">
+  /* =======================================================
+     CHECK WISHLIST
+  ======================================================= */
 
-      {/* IMAGE */}
+  const isWishlisted =
+    wishlist.some(
+      (item) =>
+        item.id === product.id
+    );
+
+  /* =======================================================
+     WISHLIST
+  ======================================================= */
+
+  const handleWishlist = (
+    e: MouseEvent<HTMLButtonElement>
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (isWishlisted) {
+      removeFromWishlist(
+        product.id
+      );
+    } else {
+      addToWishlist(
+        product
+      );
+    }
+  };
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
+
+  return (
+    <Card className="
+      group
+      relative
+      overflow-hidden
+      pt-0
+      transition
+      duration-200
+      hover:-translate-y-1
+      hover:shadow-lg
+    ">
+
+      {/* =================================================
+          WISHLIST
+      ================================================= */}
+
+      <button
+        type="button"
+        aria-label={
+          isWishlisted
+            ? "Remove from wishlist"
+            : "Add to wishlist"
+        }
+        aria-pressed={
+          isWishlisted
+        }
+        onClick={
+          handleWishlist
+        }
+        className="
+          absolute
+          right-3
+          top-3
+          z-30
+          flex
+          h-9
+          w-9
+          items-center
+          justify-center
+          rounded-full
+          border
+          border-gray-200
+          bg-white/90
+          text-gray-600
+          shadow-sm
+          backdrop-blur-sm
+          transition-all
+          duration-200
+          hover:scale-105
+          hover:border-[#E53935]
+          hover:text-[#E53935]
+          active:scale-95
+        "
+      >
+
+        <Heart
+          size={18}
+          strokeWidth={2}
+          className={
+            isWishlisted
+              ? "fill-[#E53935] text-[#E53935]"
+              : ""
+          }
+        />
+
+      </button>
+
+      {/* =================================================
+          PRODUCT LINK
+      ================================================= */}
 
       <Link
         href={`/products/detail/${product.id}`}
       >
+
+        {/* IMAGE */}
 
         <div className="overflow-hidden">
 
@@ -1488,12 +1759,28 @@ function ProductCard({
               }
               width={400}
               height={400}
-              className="h-64 w-full object-contain p-4 transition duration-300 group-hover:scale-105"
+              className="
+                h-64
+                w-full
+                object-contain
+                p-4
+                transition
+                duration-300
+                group-hover:scale-105
+              "
             />
 
           ) : (
 
-            <div className="flex h-64 items-center justify-center bg-gray-50 text-sm text-gray-400">
+            <div className="
+              flex
+              h-64
+              items-center
+              justify-center
+              bg-gray-50
+              text-sm
+              text-gray-400
+            ">
               No image
             </div>
 
@@ -1505,7 +1792,13 @@ function ProductCard({
 
         <CardHeader className="min-h-[180px]">
 
-          <CardTitle className="line-clamp-2 text-sm font-medium">
+          {/* NAME */}
+
+          <CardTitle className="
+            line-clamp-2
+            text-sm
+            font-medium
+          ">
             {
               product.name
             }
@@ -1515,7 +1808,12 @@ function ProductCard({
 
             {/* PRICE */}
 
-            <div className="mt-3 flex items-center justify-between">
+            <div className="
+              mt-3
+              flex
+              items-center
+              justify-between
+            ">
 
               <span className="font-bold text-black">
                 {
@@ -1527,7 +1825,11 @@ function ProductCard({
               {product.on_sale &&
                 product.regular_price && (
 
-                  <span className="text-xs text-gray-400 line-through">
+                  <span className="
+                    text-xs
+                    text-gray-400
+                    line-through
+                  ">
                     {
                       product.regular_price
                     }
@@ -1544,13 +1846,20 @@ function ProductCard({
               {product.stock_status ===
               "instock" ? (
 
-                <span className="text-xs font-medium text-green-600">
+                <span className="
+                  text-xs
+                  font-medium
+                  text-green-600
+                ">
                   In stock
                 </span>
 
               ) : (
 
-                <span className="text-xs text-gray-500">
+                <span className="
+                  text-xs
+                  text-gray-500
+                ">
                   Out of stock
                 </span>
 
@@ -1560,13 +1869,28 @@ function ProductCard({
 
             {/* SHIPPING */}
 
-            <div className="mt-4 h-8 overflow-hidden">
+            <div className="
+              mt-4
+              h-8
+              overflow-hidden
+            ">
 
               <div className="animate-vertical-slide">
 
-                <div className="flex h-8 items-center gap-2 text-xs text-gray-500">
+                {/* PAYMOB */}
 
-                  <LuShieldCheck className="text-[#0497D8]" />
+                <div className="
+                  flex
+                  h-8
+                  items-center
+                  gap-2
+                  text-xs
+                  text-gray-500
+                ">
+
+                  <LuShieldCheck
+                    className="text-[#0497D8]"
+                  />
 
                   <span>
                     Secure payment with Paymob
@@ -1574,9 +1898,20 @@ function ProductCard({
 
                 </div>
 
-                <div className="flex h-8 items-center gap-2 text-xs text-gray-500">
+                {/* BOSTA */}
 
-                  <FaShippingFast className="text-[#0497D8]" />
+                <div className="
+                  flex
+                  h-8
+                  items-center
+                  gap-2
+                  text-xs
+                  text-gray-500
+                ">
+
+                  <FaShippingFast
+                    className="text-[#0497D8]"
+                  />
 
                   <span>
                     Track and delivery with Bosta
@@ -1594,18 +1929,31 @@ function ProductCard({
 
       </Link>
 
-      {/* ADD CART */}
+      {/* =================================================
+          ADD CART
+      ================================================= */}
 
       <button
         type="button"
-        className="mx-4 mb-4 w-[calc(100%-2rem)] rounded-xl bg-[#0497D8] py-2.5 text-sm font-medium text-white transition hover:bg-[#0387c2]"
+        className="
+          mx-4
+          mb-4
+          w-[calc(100%-2rem)]
+          rounded-xl
+          bg-[#0497D8]
+          py-2.5
+          text-sm
+          font-medium
+          text-white
+          transition
+          hover:bg-[#0387c2]
+        "
         onClick={(e) => {
 
           e.preventDefault();
+          e.stopPropagation();
 
-          /*
-            Add Cart Logic
-          */
+          // Add to cart logic
 
         }}
       >
@@ -1630,12 +1978,28 @@ function FilterSkeleton() {
 
         <div
           key={index}
-          className="flex items-center gap-3"
+          className="
+            flex
+            items-center
+            gap-3
+          "
         >
 
-          <div className="h-4 w-4 animate-pulse rounded bg-gray-100" />
+          <div className="
+            h-4
+            w-4
+            animate-pulse
+            rounded
+            bg-gray-100
+          " />
 
-          <div className="h-4 w-24 animate-pulse rounded bg-gray-100" />
+          <div className="
+            h-4
+            w-24
+            animate-pulse
+            rounded
+            bg-gray-100
+          " />
 
         </div>
 
@@ -1651,7 +2015,13 @@ function FilterSkeleton() {
 
 function ProductSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+    <div className="
+      grid
+      grid-cols-2
+      gap-4
+      sm:grid-cols-3
+      xl:grid-cols-4
+    ">
 
       {Array.from({
         length: 8,
@@ -1659,20 +2029,54 @@ function ProductSkeleton() {
 
         <div
           key={index}
-          className="overflow-hidden rounded-xl border"
+          className="
+            overflow-hidden
+            rounded-xl
+            border
+          "
         >
 
-          <div className="aspect-square animate-pulse bg-gray-100" />
+          <div className="
+            aspect-square
+            animate-pulse
+            bg-gray-100
+          " />
 
-          <div className="space-y-3 p-4">
+          <div className="
+            space-y-3
+            p-4
+          ">
 
-            <div className="h-4 animate-pulse rounded bg-gray-100" />
+            <div className="
+              h-4
+              animate-pulse
+              rounded
+              bg-gray-100
+            " />
 
-            <div className="h-4 w-3/4 animate-pulse rounded bg-gray-100" />
+            <div className="
+              h-4
+              w-3/4
+              animate-pulse
+              rounded
+              bg-gray-100
+            " />
 
-            <div className="h-3 w-1/2 animate-pulse rounded bg-gray-100" />
+            <div className="
+              h-3
+              w-1/2
+              animate-pulse
+              rounded
+              bg-gray-100
+            " />
 
-            <div className="h-5 w-1/3 animate-pulse rounded bg-gray-100" />
+            <div className="
+              h-5
+              w-1/3
+              animate-pulse
+              rounded
+              bg-gray-100
+            " />
 
           </div>
 
@@ -1696,9 +2100,29 @@ function EmptyState({
   clearFilters: () => void;
 }) {
   return (
-    <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed px-6 text-center">
+    <div className="
+      flex
+      min-h-[400px]
+      flex-col
+      items-center
+      justify-center
+      rounded-2xl
+      border
+      border-dashed
+      px-6
+      text-center
+    ">
 
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+      <div className="
+        mb-4
+        flex
+        h-16
+        w-16
+        items-center
+        justify-center
+        rounded-full
+        bg-gray-100
+      ">
 
         <SearchX
           size={28}
@@ -1707,16 +2131,29 @@ function EmptyState({
 
       </div>
 
-      <h2 className="text-lg font-semibold text-gray-900">
+      <h2 className="
+        text-lg
+        font-semibold
+        text-gray-900
+      ">
         No products found
       </h2>
 
-      <p className="mt-2 max-w-md text-sm text-gray-500">
+      <p className="
+        mt-2
+        max-w-md
+        text-sm
+        text-gray-500
+      ">
         There are no products matching
         your current filters.
       </p>
 
-      <p className="mt-2 text-sm text-gray-400">
+      <p className="
+        mt-2
+        text-sm
+        text-gray-400
+      ">
         Try changing the brand,
         category, price or availability.
       </p>
@@ -1728,7 +2165,17 @@ function EmptyState({
           onClick={
             clearFilters
           }
-          className="mt-5 rounded-lg bg-[#0497D8] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#0387c2]"
+          className="
+            mt-5
+            rounded-lg
+            bg-[#0497D8]
+            px-5
+            py-2.5
+            text-sm
+            font-medium
+            text-white
+            hover:bg-[#0387c2]
+          "
         >
           Clear Filters
         </button>

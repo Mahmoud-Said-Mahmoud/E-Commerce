@@ -30,10 +30,16 @@ import type { ProductI } from "@/interface/product";
 
 import { LuShieldCheck } from "react-icons/lu";
 import { FaShippingFast } from "react-icons/fa";
+
 import Link from "next/link";
 
-import { ShoppingCart } from "lucide-react";
+import {
+  Heart,
+  ShoppingCart,
+} from "lucide-react";
+
 import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
 
 /* =========================================================
    TYPES
@@ -77,11 +83,14 @@ const categories: CategoryTab[] = [
 ========================================================= */
 
 export default function Trend() {
-  const [activeCategory, setActiveCategory] = useState(134);
+  const [activeCategory, setActiveCategory] =
+    useState(134);
 
-  const [products, setProducts] = useState<ProductI[]>([]);
+  const [products, setProducts] =
+    useState<ProductI[]>([]);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] =
+    useState(true);
 
   /* =======================================================
      GET PRODUCTS
@@ -99,6 +108,7 @@ export default function Trend() {
          *
          * We request only the first page.
          */
+
         const result = await productApi(1, {
           category: activeCategory.toString(),
         });
@@ -109,15 +119,20 @@ export default function Trend() {
          * Only products that have at least
          * one valid image.
          */
-        const productsWithImages = (result.data || [])
-          .filter((product: ProductI) =>
-            product.images?.some(
-              (image) => Boolean(image?.src)
-            )
-          )
-          .slice(0, 12);
 
-        setProducts(productsWithImages);
+        const productsWithImages =
+          (result.data || [])
+            .filter((product: ProductI) =>
+              product.images?.some(
+                (image) =>
+                  Boolean(image?.src)
+              )
+            )
+            .slice(0, 12);
+
+        setProducts(
+          productsWithImages
+        );
       } catch (error) {
         console.error(
           "Best Seller products error:",
@@ -160,12 +175,16 @@ export default function Trend() {
       <Tabs
         defaultValue="mobile"
         onValueChange={(value) => {
-          const category = categories.find(
-            (item) => item.value === value
-          );
+          const category =
+            categories.find(
+              (item) =>
+                item.value === value
+            );
 
           if (category) {
-            setActiveCategory(category.categoryId);
+            setActiveCategory(
+              category.categoryId
+            );
           }
         }}
       >
@@ -174,22 +193,24 @@ export default function Trend() {
         ================================================= */}
 
         <TabsList className="mb-6 gap-2">
-          {categories.map((category) => (
-            <TabsTrigger
-              key={category.value}
-              value={category.value}
-              className="
-                cursor-pointer
-                px-4
-                py-3
-                text-lg
-                data-[state=active]:bg-[#0497D8]
-                data-[state=active]:text-black/70
-              "
-            >
-              {category.label}
-            </TabsTrigger>
-          ))}
+          {categories.map(
+            (category) => (
+              <TabsTrigger
+                key={category.value}
+                value={category.value}
+                className="
+                  cursor-pointer
+                  px-4
+                  py-3
+                  text-lg
+                  data-[state=active]:bg-[#0497D8]
+                  data-[state=active]:text-black/70
+                "
+              >
+                {category.label}
+              </TabsTrigger>
+            )
+          )}
         </TabsList>
 
         {/* =================================================
@@ -251,7 +272,13 @@ function ProductCarousel({
   products: ProductI[];
   loading: boolean;
 }) {
-  const { addToCart } = useCart();
+  const { addToCart } =
+    useCart();
+
+  const {
+    toggleWishlist,
+    isInWishlist,
+  } = useWishlist();
 
   /* =======================================================
      LOADING
@@ -260,7 +287,9 @@ function ProductCarousel({
   if (loading) {
     return (
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, index) => (
+        {Array.from({
+          length: 5,
+        }).map((_, index) => (
           <div
             key={index}
             className="overflow-hidden rounded-xl border"
@@ -311,16 +340,29 @@ function ProductCarousel({
           /*
            * Find first valid image.
            */
-          const image = product.images?.find(
-            (item) => Boolean(item?.src)
-          );
+
+          const image =
+            product.images?.find(
+              (item) =>
+                Boolean(item?.src)
+            );
 
           /*
            * Don't render products without images.
            */
+
           if (!image?.src) {
             return null;
           }
+
+          /*
+           * Wishlist state
+           */
+
+          const liked =
+            isInWishlist(
+              product.id
+            );
 
           return (
             <CarouselItem
@@ -345,13 +387,75 @@ function ProductCarousel({
                   hover:shadow-lg
                 "
               >
-                <Link href={"/products/detail/" + product.id}>
+                {/* =================================================
+                    WISHLIST BUTTON
+                ================================================= */}
+
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    toggleWishlist(
+                      product
+                    );
+                  }}
+                  aria-label={
+                    liked
+                      ? "Remove from wishlist"
+                      : "Add to wishlist"
+                  }
+                  className="
+                    absolute
+                    right-3
+                    top-3
+                    z-20
+                    flex
+                    h-9
+                    w-9
+                    items-center
+                    justify-center
+                    rounded-full
+                    border
+                    border-gray-100
+                    bg-white/95
+                    shadow-sm
+                    backdrop-blur
+                    transition
+                    hover:scale-105
+                    hover:bg-white
+                  "
+                >
+                  <Heart
+                    size={18}
+                    className={
+                      liked
+                        ? "fill-red-500 text-red-500"
+                        : "text-gray-500"
+                    }
+                  />
+                </button>
+
+                {/* =================================================
+                    PRODUCT LINK
+                ================================================= */}
+
+                <Link
+                  href={
+                    "/products/detail/" +
+                    product.id
+                  }
+                >
                   {/* IMAGE */}
 
                   <div className="overflow-hidden">
                     <Image
                       src={image.src}
-                      alt={image.alt || product.name}
+                      alt={
+                        image.alt ||
+                        product.name
+                      }
                       width={500}
                       height={500}
                       className="
@@ -387,7 +491,9 @@ function ProductCarousel({
                         {product.on_sale &&
                           product.regular_price && (
                             <p className="text-xs text-gray-400 line-through">
-                              {product.regular_price}
+                              {
+                                product.regular_price
+                              }
                             </p>
                           )}
                       </div>
@@ -421,15 +527,19 @@ function ProductCarousel({
                   </CardHeader>
                 </Link>
 
-                {/* ADD TO CART */}
+                {/* =================================================
+                    ADD TO CART
+                ================================================= */}
 
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
 
-                    addToCart(product);
+                    addToCart(
+                      product
+                    );
                   }}
                   className="
                     mx-3
@@ -450,7 +560,9 @@ function ProductCarousel({
                     active:scale-[0.98]
                   "
                 >
-                  <ShoppingCart size={16} />
+                  <ShoppingCart
+                    size={16}
+                  />
 
                   Add to Cart
                 </button>

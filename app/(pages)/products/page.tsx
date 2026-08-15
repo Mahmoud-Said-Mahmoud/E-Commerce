@@ -3,12 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
-// import { ShoppingCart } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useEffect,
   useMemo,
   useState,
+  type ChangeEvent,
   type MouseEvent,
   type TouchEvent,
 } from "react";
@@ -16,6 +16,7 @@ import {
 import {
   ChevronDown,
   Filter,
+  Heart,
   SearchX,
   ShoppingCart,
   SlidersHorizontal,
@@ -40,7 +41,7 @@ import {
 
 import {
   productApi,
-  ProductFilters,
+  type ProductFilters,
 } from "@/service/product";
 
 import type {
@@ -53,6 +54,8 @@ import type { BrandI } from "@/interface/brand";
 import { FaShippingFast } from "react-icons/fa";
 import { LuShieldCheck } from "react-icons/lu";
 
+import { useWishlist } from "@/context/WishlistContext";
+
 /* =========================================================
    TYPES
 ========================================================= */
@@ -60,6 +63,31 @@ import { LuShieldCheck } from "react-icons/lu";
 interface FiltersResponse {
   categories: Category[];
   brands: BrandI[];
+}
+
+interface FilterProps {
+  categories: Category[];
+  brands: BrandI[];
+
+  selectedCategories: string[];
+  selectedBrands: string[];
+
+  minPrice: string;
+  maxPrice: string;
+
+  filtersLoading: boolean;
+
+  setMinPrice: (value: string) => void;
+  setMaxPrice: (value: string) => void;
+
+  toggleCategory: (id: number) => void;
+  toggleBrand: (id: number) => void;
+
+  applyPrice: () => void;
+
+  clearFilters: () => void;
+
+  hasFilters: boolean;
 }
 
 /* =========================================================
@@ -74,8 +102,10 @@ export default function ProductsPage() {
      URL PAGE
   ======================================================= */
 
-  const page =
-    Number(searchParams.get("page")) || 1;
+  const page = Math.max(
+    1,
+    Number(searchParams.get("page")) || 1
+  );
 
   /* =======================================================
      CATEGORY
@@ -107,44 +137,35 @@ export default function ProductsPage() {
      PRICE
   ======================================================= */
 
-  const minPrice =
-    searchParams.get("min_price") || "";
-
-  const maxPrice =
-    searchParams.get("max_price") || "";
+  const minPrice = searchParams.get("min_price") || "";
+  const maxPrice = searchParams.get("max_price") || "";
 
   /* =======================================================
      SORT
   ======================================================= */
 
-  const sort =
-    searchParams.get("sort") ||
-    "relevance";
+  const sort = searchParams.get("sort") || "relevance";
 
   /* =======================================================
      STATE
   ======================================================= */
 
-  const [products, setProducts] =
-    useState<ProductI[]>([]);
+  const [products, setProducts] = useState<ProductI[]>([]);
 
-  const [totalProducts, setTotalProducts] =
-    useState(0);
+  const [totalProducts, setTotalProducts] = useState(0);
 
-  const [totalPages, setTotalPages] =
-    useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
   const [filtersLoading, setFiltersLoading] =
     useState(true);
 
-  const [categories, setCategories] =
-    useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>(
+    []
+  );
 
-  const [brands, setBrands] =
-    useState<BrandI[]>([]);
+  const [brands, setBrands] = useState<BrandI[]>([]);
 
   const [mobileFilters, setMobileFilters] =
     useState(false);
@@ -160,7 +181,7 @@ export default function ProductsPage() {
     useState(maxPrice);
 
   /* =======================================================
-     SYNC PRICE WITH URL
+     SYNC PRICE INPUTS WITH URL
   ======================================================= */
 
   useEffect(() => {
@@ -197,10 +218,7 @@ export default function ProductsPage() {
 
         if (cancelled) return;
 
-        setCategories(
-          data.categories || []
-        );
-
+        setCategories(data.categories || []);
         setBrands(data.brands || []);
       } catch (error) {
         console.error(
@@ -230,7 +248,7 @@ export default function ProductsPage() {
      GET PRODUCTS
      
      IMPORTANT:
-     We ALWAYS request in-stock products.
+     We ALWAYS request IN-STOCK products.
   ======================================================= */
 
   useEffect(() => {
@@ -268,20 +286,18 @@ export default function ProductsPage() {
               : undefined,
         };
 
-        const result =
-          await productApi(
-            page,
-            filters
-          );
+        const result = await productApi(
+          page,
+          filters
+        );
 
         if (cancelled) return;
 
         /*
-         * Remove products without images
+         * Only display:
          *
-         * Also make sure only products
-         * with stock_status = instock
-         * are displayed.
+         * 1. In-stock products
+         * 2. Products with at least one image
          */
 
         const productsWithImages =
@@ -293,21 +309,21 @@ export default function ProductsPage() {
                 product.images
               ) &&
               product.images.some(
-                (image) =>
-                  image?.src
+                (image) => Boolean(image?.src)
               )
           );
 
-        setProducts(
-          productsWithImages
-        );
+        setProducts(productsWithImages);
 
         setTotalProducts(
           result.totalProducts || 0
         );
 
         setTotalPages(
-          result.totalPages || 1
+          Math.max(
+            1,
+            result.totalPages || 1
+          )
         );
       } catch (error) {
         console.error(
@@ -369,10 +385,18 @@ export default function ProductsPage() {
       }
     );
 
+    /*
+     * Whenever a filter changes,
+     * return to page 1.
+     */
     params.set("page", "1");
 
+    const query = params.toString();
+
     router.push(
-      `/products?${params.toString()}`
+      query
+        ? `/products?${query}`
+        : "/products"
     );
   };
 
@@ -447,21 +471,36 @@ export default function ProductsPage() {
   ======================================================= */
 
   const applyPrice = () => {
+    const min =
+      localMinPrice.trim();
+
+    const max =
+      localMaxPrice.trim();
+
+    /*
+     * Prevent negative values.
+     */
     if (
-      localMinPrice &&
-      localMaxPrice &&
-      Number(localMinPrice) >
-        Number(localMaxPrice)
+      (min && Number(min) < 0) ||
+      (max && Number(max) < 0)
+    ) {
+      return;
+    }
+
+    /*
+     * Prevent min > max.
+     */
+    if (
+      min &&
+      max &&
+      Number(min) > Number(max)
     ) {
       return;
     }
 
     updateFilters({
-      min_price:
-        localMinPrice || null,
-
-      max_price:
-        localMaxPrice || null,
+      min_price: min || null,
+      max_price: max || null,
     });
   };
 
@@ -485,17 +524,12 @@ export default function ProductsPage() {
   ======================================================= */
 
   const clearFilters = () => {
-    const params =
-      new URLSearchParams();
-
-    params.set("page", "1");
-
-    router.push(
-      `/products?${params.toString()}`
-    );
+    router.push("/products");
 
     setLocalMinPrice("");
     setLocalMaxPrice("");
+
+    setMobileFilters(false);
   };
 
   /* =======================================================
@@ -533,8 +567,12 @@ export default function ProductsPage() {
       newPage.toString()
     );
 
+    const query = params.toString();
+
     router.push(
-      `/products?${params.toString()}`
+      query
+        ? `/products?${query}`
+        : "/products"
     );
 
     window.scrollTo({
@@ -709,6 +747,7 @@ export default function ProductsPage() {
                       e.target.value
                     )
                   }
+                  aria-label="Sort products"
                   className="
                     h-10
                     appearance-none
@@ -770,7 +809,15 @@ export default function ProductsPage() {
               <>
                 {/* PRODUCT GRID */}
 
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+                <div
+                  className="
+                    grid
+                    grid-cols-2
+                    gap-4
+                    sm:grid-cols-3
+                    xl:grid-cols-4
+                  "
+                >
                   {products.map(
                     (product) => (
                       <ProductCard
@@ -953,7 +1000,6 @@ export default function ProductsPage() {
             "
           >
             <div className="mb-6 flex items-center justify-between">
-
               <h2 className="text-lg font-semibold">
                 Filters
               </h2>
@@ -965,6 +1011,7 @@ export default function ProductsPage() {
                     false
                   )
                 }
+                aria-label="Close filters"
                 className="
                   rounded-full
                   p-2
@@ -1043,45 +1090,6 @@ export default function ProductsPage() {
       )}
     </main>
   );
-}
-
-/* =========================================================
-   FILTER CONTENT TYPES
-========================================================= */
-
-interface FilterProps {
-  categories: Category[];
-  brands: BrandI[];
-
-  selectedCategories: string[];
-  selectedBrands: string[];
-
-  minPrice: string;
-  maxPrice: string;
-
-  filtersLoading: boolean;
-
-  setMinPrice: (
-    value: string
-  ) => void;
-
-  setMaxPrice: (
-    value: string
-  ) => void;
-
-  toggleCategory: (
-    id: number
-  ) => void;
-
-  toggleBrand: (
-    id: number
-  ) => void;
-
-  applyPrice: () => void;
-
-  clearFilters: () => void;
-
-  hasFilters: boolean;
 }
 
 /* =========================================================
@@ -1287,7 +1295,9 @@ function FilterContent({
             type="number"
             min="0"
             value={minPrice}
-            onChange={(e) =>
+            onChange={(
+              e: ChangeEvent<HTMLInputElement>
+            ) =>
               setMinPrice(
                 e.target.value
               )
@@ -1300,6 +1310,7 @@ function FilterContent({
               }
             }}
             placeholder="Min"
+            aria-label="Minimum price"
             className="
               h-10
               w-full
@@ -1316,7 +1327,9 @@ function FilterContent({
             type="number"
             min="0"
             value={maxPrice}
-            onChange={(e) =>
+            onChange={(
+              e: ChangeEvent<HTMLInputElement>
+            ) =>
               setMaxPrice(
                 e.target.value
               )
@@ -1329,6 +1342,7 @@ function FilterContent({
               }
             }}
             placeholder="Max"
+            aria-label="Maximum price"
             className="
               h-10
               w-full
@@ -1405,19 +1419,33 @@ function FilterContent({
 ========================================================= */
 
 function ProductCard({
-
   product,
 }: {
   product: ProductI;
 }) {
-    const { addToCart } = useCart();
+  const { addToCart } = useCart();
+
+  /*
+   * IMPORTANT:
+   * Wishlist is now handled entirely
+   * through WishlistContext.
+   */
+  const {
+    toggleWishlist,
+    isInWishlist,
+  } = useWishlist();
+
+  const liked = isInWishlist(
+    product.id
+  );
+
   /* =======================================================
      VALID IMAGES
   ======================================================= */
 
   const images =
     product.images?.filter(
-      (image) => image?.src
+      (image) => Boolean(image?.src)
     ) || [];
 
   /* =======================================================
@@ -1431,25 +1459,19 @@ function ProductCard({
      HOVER
   ======================================================= */
 
-  const [
-    isHoveringImage,
-    setIsHoveringImage,
-  ] = useState(false);
+  const [isHoveringImage, setIsHoveringImage] =
+    useState(false);
 
   /* =======================================================
      TOUCH
   ======================================================= */
 
-  const [
-    touchStartX,
-    setTouchStartX,
-  ] = useState<number | null>(
-    null
-  );
+  const [touchStartX, setTouchStartX] =
+    useState<number | null>(null);
 
-  /*
-   * If no images
-   */
+  /* =======================================================
+     NO IMAGES
+  ======================================================= */
 
   if (!images.length) {
     return null;
@@ -1466,8 +1488,8 @@ function ProductCard({
   /* =======================================================
      MOUSE MOVE
      
-     The mouse position directly determines
-     which product image should be displayed.
+     Mouse position controls
+     the active product image.
   ======================================================= */
 
   const handleMouseMove = (
@@ -1483,10 +1505,6 @@ function ProductCard({
     const mouseX =
       e.clientX - rect.left;
 
-    /*
-     * 0 → 1
-     */
-
     const percentage = Math.min(
       Math.max(
         mouseX / rect.width,
@@ -1494,11 +1512,6 @@ function ProductCard({
       ),
       1
     );
-
-    /*
-     * Convert mouse position
-     * to image index.
-     */
 
     const imageIndex = Math.min(
       Math.floor(
@@ -1508,15 +1521,11 @@ function ProductCard({
       images.length - 1
     );
 
-    /*
-     * Only update if image
-     * actually changed.
-     */
-
-    setActiveImage((current) =>
-      current === imageIndex
-        ? current
-        : imageIndex
+    setActiveImage(
+      (current) =>
+        current === imageIndex
+          ? current
+          : imageIndex
     );
   };
 
@@ -1526,11 +1535,6 @@ function ProductCard({
 
   const handleMouseLeave = () => {
     setIsHoveringImage(false);
-
-    /*
-     * Return to first image
-     */
-
     setActiveImage(0);
   };
 
@@ -1602,6 +1606,32 @@ function ProductCard({
     setTouchStartX(null);
   };
 
+  /* =======================================================
+     WISHLIST
+  ======================================================= */
+
+  const handleWishlist = (
+    e: MouseEvent<HTMLButtonElement>
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    toggleWishlist(product);
+  };
+
+  /* =======================================================
+     ADD TO CART
+  ======================================================= */
+
+  const handleAddToCart = (
+    e: MouseEvent<HTMLButtonElement>
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    addToCart(product);
+  };
+
   return (
     <Card
       className="
@@ -1648,6 +1678,7 @@ function ProductCard({
             handleTouchEnd
           }
         >
+
           {/* BADGES */}
 
           <div
@@ -1701,6 +1732,52 @@ function ProductCard({
               </span>
             )}
           </div>
+
+          {/* =================================================
+              WISHLIST
+          ================================================= */}
+
+          <button
+            type="button"
+            onClick={
+              handleWishlist
+            }
+            aria-label={
+              liked
+                ? "Remove from wishlist"
+                : "Add to wishlist"
+            }
+            aria-pressed={liked}
+            className="
+              absolute
+              right-3
+              top-3
+              z-20
+              flex
+              h-9
+              w-9
+              items-center
+              justify-center
+              rounded-full
+              border
+              border-gray-100
+              bg-white/95
+              shadow-sm
+              backdrop-blur
+              transition
+              hover:scale-105
+              hover:bg-white
+            "
+          >
+            <Heart
+              size={18}
+              className={
+                liked
+                  ? "fill-red-500 text-red-500"
+                  : "text-gray-500"
+              }
+            />
+          </button>
 
           {/* IMAGE CONTAINER */}
 
@@ -1768,6 +1845,7 @@ function ProductCard({
                   ) => (
                     <span
                       key={
+                        image.id ??
                         index
                       }
                       className={`
@@ -1877,10 +1955,12 @@ function ProductCard({
               </span>
             </div>
 
-            {/* SHIPPING */}
+            {/* SHIPPING / PAYMENT */}
 
             <div className="mt-4 h-8 overflow-hidden">
               <div className="animate-vertical-slide">
+
+                {/* PAYMOB */}
 
                 <div
                   className="
@@ -1900,6 +1980,8 @@ function ProductCard({
                     Secure payment with Paymob
                   </span>
                 </div>
+
+                {/* BOSTA */}
 
                 <div
                   className="
@@ -1931,36 +2013,34 @@ function ProductCard({
           ADD TO CART
       ================================================= */}
 
-   <button
-  type="button"
-  className="
-    mx-4
-    mb-4
-    flex
-    w-[calc(100%-2rem)]
-    items-center
-    justify-center
-    gap-2
-    rounded-xl
-    bg-[#0497D8]
-    py-2.5
-    text-sm
-    font-medium
-    text-white
-    transition
-    hover:bg-[#0387c2]
-    active:scale-[0.98]
-  "
-  onClick={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
+      <button
+        type="button"
+        className="
+          mx-4
+          mb-4
+          flex
+          w-[calc(100%-2rem)]
+          items-center
+          justify-center
+          gap-2
+          rounded-xl
+          bg-[#0497D8]
+          py-2.5
+          text-sm
+          font-medium
+          text-white
+          transition
+          hover:bg-[#0387c2]
+          active:scale-[0.98]
+        "
+        onClick={
+          handleAddToCart
+        }
+      >
+        <ShoppingCart size={17} />
 
-    addToCart(product);
-  }}
->
-  <ShoppingCart size={17} />
-  Add to Cart
-</button>
+        Add to Cart
+      </button>
     </Card>
   );
 }
@@ -1996,7 +2076,10 @@ function isNewProduct(
       60 *
       24);
 
-  return days <= 14;
+  return (
+    days >= 0 &&
+    days <= 14
+  );
 }
 
 /* =========================================================

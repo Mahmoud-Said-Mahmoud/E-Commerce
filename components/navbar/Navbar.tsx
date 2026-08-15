@@ -34,6 +34,7 @@ import {
 
 import NewSearch from "../search/search";
 import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
 
 /* =========================================================
    TYPES
@@ -204,6 +205,12 @@ export default function Navbar() {
   ======================================================= */
 
   const { cart } = useCart();
+
+  /* =======================================================
+     WISHLIST CONTEXT
+  ======================================================= */
+
+  const { wishlist } = useWishlist();
 
   /* =======================================================
      CART COUNT
@@ -575,18 +582,56 @@ export default function Navbar() {
                 )}
               </div>
 
-              {/* WISHLIST */}
+              {/* =================================================
+                  WISHLIST
+              ================================================= */}
 
               <Link
                 href="/wishlist"
-                aria-label="Wishlist"
+                aria-label={`Wishlist${
+                  wishlist.length > 0
+                    ? ` (${wishlist.length})`
+                    : ""
+                }`}
                 className="
+                  relative
+                  flex
                   shrink-0
+                  items-center
+                  justify-center
                   transition
                   hover:scale-110
                 "
               >
                 <Heart className="size-5 text-[#0497D8]" />
+
+                {/* WISHLIST COUNT */}
+
+                {wishlist.length > 0 && (
+                  <span
+                    className="
+                      absolute
+                      -right-2.5
+                      -top-2.5
+                      flex
+                      h-4
+                      min-w-4
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-[#E53935]
+                      px-1
+                      text-[10px]
+                      font-bold
+                      leading-none
+                      text-white
+                    "
+                  >
+                    {wishlist.length > 99
+                      ? "99+"
+                      : wishlist.length}
+                  </span>
+                )}
               </Link>
 
               {/* =================================================
@@ -803,6 +848,7 @@ export default function Navbar() {
                       className="
                         flex
                         items-center
+                        justify-between
                         gap-3
                         rounded-lg
                         px-3
@@ -814,11 +860,37 @@ export default function Navbar() {
                         hover:text-[#0497D8]
                       "
                     >
-                      <Heart className="size-4" />
+                      <div className="flex items-center gap-3">
+                        <Heart className="size-4" />
 
-                      <span>
-                        Wishlist
-                      </span>
+                        <span>
+                          Wishlist
+                        </span>
+                      </div>
+
+                      {/* WISHLIST COUNT IN DROPDOWN */}
+
+                      {wishlist.length > 0 && (
+                        <span
+                          className="
+                            flex
+                            h-5
+                            min-w-5
+                            items-center
+                            justify-center
+                            rounded-full
+                            bg-[#E53935]
+                            px-1
+                            text-[10px]
+                            font-bold
+                            text-white
+                          "
+                        >
+                          {wishlist.length > 99
+                            ? "99+"
+                            : wishlist.length}
+                        </span>
+                      )}
                     </Link>
 
                     {/* DIVIDER */}

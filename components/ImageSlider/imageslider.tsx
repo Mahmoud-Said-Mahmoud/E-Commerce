@@ -8,6 +8,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
+
 import { useState } from "react";
 
 export default function ProductGallery({ product }: any) {
