@@ -23,62 +23,6 @@ export default function LoginForm({
   const [success, setSuccess] = useState("");
 
   /* =========================================================
-     SYNC LOCAL CART
-  ========================================================= */
-
-  async function syncLocalCart() {
-    try {
-      const storedCart = localStorage.getItem("cart");
-
-      // No local cart
-      if (!storedCart) {
-        return true;
-      }
-
-      const cart = JSON.parse(storedCart);
-
-      // Empty cart
-      if (!Array.isArray(cart) || cart.length === 0) {
-        localStorage.removeItem("cart");
-        return true;
-      }
-
-      const response = await fetch("/api/cart/sync", {
-        method: "POST",
-
-        headers: {
-          "Content-Type": "application/json",
-        },
-
-        body: JSON.stringify({
-          items: cart,
-        }),
-      });
-
-      if (!response.ok) {
-        console.error(
-          "Cart sync failed:",
-          await response.text()
-        );
-
-        return false;
-      }
-
-      // Only remove local cart AFTER successful sync
-      localStorage.removeItem("cart");
-
-      return true;
-    } catch (error) {
-      console.error(
-        "Local cart sync error:",
-        error
-      );
-
-      return false;
-    }
-  }
-
-  /* =========================================================
      SYNC LOCAL WISHLIST
   ========================================================= */
 
@@ -213,13 +157,6 @@ export default function LoginForm({
       );
 
       /* =====================================================
-         SYNC LOCAL CART
-      ===================================================== */
-
-      const cartSynced =
-        await syncLocalCart();
-
-      /* =====================================================
          SYNC LOCAL WISHLIST
       ===================================================== */
 
@@ -231,7 +168,6 @@ export default function LoginForm({
       ===================================================== */
 
       if (
-        !cartSynced ||
         !wishlistSynced
       ) {
         console.warn(
@@ -247,8 +183,7 @@ export default function LoginForm({
          *
          * This is intentional.
          *
-         * If the API failed, the local cart/wishlist
-         * remains available so the user doesn't lose data.
+          * If the API failed, the local wishlist remains available.
          */
 
         await new Promise(
@@ -268,7 +203,7 @@ export default function LoginForm({
       ===================================================== */
 
       console.log(
-        "Cart and Wishlist synced successfully."
+        "Wishlist synced successfully."
       );
 
       setSuccess(

@@ -16,8 +16,17 @@ import type { ProductI } from "@/interface/product";
    TYPES
 ========================================================= */
 
-export interface CartItem extends ProductI {
+export interface CartItem extends Omit<ProductI, "attributes"> {
   quantity: number;
+  productId?: string | number;
+  variationId?: string | number;
+  variation_id?: string | number;
+  image?: string;
+  stockQuantity?: number | null;
+  stockStatus?: string;
+  manageStock?: boolean;
+  purchasable?: boolean;
+  attributes?: ProductI["attributes"] | Record<string, string>;
 }
 
 interface CartContextType {
@@ -28,18 +37,21 @@ interface CartContextType {
   loadingCart: boolean;
   initialized: boolean;
 
-  addToCart: (product: ProductI) => Promise<void>;
+  addToCart: (product: Omit<CartItem, "quantity">) => Promise<void>;
 
   removeFromCart: (
-    itemId: string | number
+    itemId: string | number,
+    variationId?: string | number
   ) => Promise<void>;
 
   increaseQuantity: (
-    itemId: string | number
+    itemId: string | number,
+    variationId?: string | number
   ) => Promise<void>;
 
   decreaseQuantity: (
-    itemId: string | number
+    itemId: string | number,
+    variationId?: string | number
   ) => Promise<void>;
 
   clearCart: () => Promise<void>;
@@ -66,7 +78,23 @@ const GUEST_CART_KEY = "cart_guest";
  * Database remains the source of truth
  * for authenticated users.
  */
-const USER_CART_CACHE_KEY = "cart_user_cache";
+const USER_CART_CACHE_KEY = "cart_user_backup";
+
+class CartApiError extends Error {
+  cart: CartItem[];
+  availableStock?: number | null;
+
+  constructor(
+    message: string,
+    cart: CartItem[] = [],
+    availableStock?: number | null
+  ) {
+    super(message);
+    this.name = "CartApiError";
+    this.cart = cart;
+    this.availableStock = availableStock;
+  }
+}
 
 /* =========================================================
    NORMALIZE CART
@@ -237,25 +265,6 @@ function saveUserCartCache(
   }
 }
 
-function clearUserCartCache() {
-  if (
-    typeof window === "undefined"
-  ) {
-    return;
-  }
-
-  try {
-    localStorage.removeItem(
-      USER_CART_CACHE_KEY
-    );
-  } catch (error) {
-    console.error(
-      "Failed to clear user cart cache:",
-      error
-    );
-  }
-}
-
 /* =========================================================
    CART EVENT
 ========================================================= */
@@ -324,7 +333,7 @@ async function fetchUserCart(): Promise<
 ========================================================= */
 
 async function addProductToDatabaseCart(
-  product: ProductI,
+  product: Omit<CartItem, "quantity">,
   quantity = 1
 ): Promise<CartItem[]> {
   const safeQuantity =
@@ -364,9 +373,11 @@ async function addProductToDatabaseCart(
       .catch(() => null);
 
   if (!response.ok) {
-    throw new Error(
+    throw new CartApiError(
       result?.message ||
-        "Failed to add product to cart."
+        "Failed to add product to cart.",
+      normalizeCart(result?.cart),
+      result?.availableStock
     );
   }
 
@@ -381,7 +392,8 @@ async function addProductToDatabaseCart(
 
 async function updateDatabaseCartQuantity(
   productId: string | number,
-  quantity: number
+  quantity: number,
+  variationId?: string | number
 ): Promise<CartItem[]> {
   const safeQuantity =
     Math.max(
@@ -408,6 +420,7 @@ async function updateDatabaseCartQuantity(
 
         body: JSON.stringify({
           productId,
+          variationId,
           quantity:
             safeQuantity,
         }),
@@ -420,9 +433,11 @@ async function updateDatabaseCartQuantity(
       .catch(() => null);
 
   if (!response.ok) {
-    throw new Error(
+    throw new CartApiError(
       result?.message ||
-        "Failed to update cart quantity."
+        "Failed to update cart quantity.",
+      normalizeCart(result?.cart),
+      result?.availableStock
     );
   }
 
@@ -436,7 +451,8 @@ async function updateDatabaseCartQuantity(
 ========================================================= */
 
 async function removeProductFromDatabaseCart(
-  productId: string | number
+  productId: string | number,
+  variationId?: string | number
 ): Promise<CartItem[]> {
   const response =
     await fetch(
@@ -457,6 +473,7 @@ async function removeProductFromDatabaseCart(
 
         body: JSON.stringify({
           productId,
+          variationId,
         }),
       }
     );
@@ -467,9 +484,10 @@ async function removeProductFromDatabaseCart(
       .catch(() => null);
 
   if (!response.ok) {
-    throw new Error(
+    throw new CartApiError(
       result?.message ||
-        "Failed to remove product."
+        "Failed to remove product.",
+      normalizeCart(result?.cart)
     );
   }
 
@@ -514,9 +532,10 @@ async function clearDatabaseCart(): Promise<
       .catch(() => null);
 
   if (!response.ok) {
-    throw new Error(
+    throw new CartApiError(
       result?.message ||
-        "Failed to clear cart."
+        "Failed to clear cart.",
+      normalizeCart(result?.cart)
     );
   }
 
@@ -531,13 +550,14 @@ async function clearDatabaseCart(): Promise<
 
 function addProductToLocalCart(
   currentCart: CartItem[],
-  product: ProductI
+  product: Omit<CartItem, "quantity">
 ): CartItem[] {
   const existingIndex =
     currentCart.findIndex(
       (item) =>
-        String(item.id) ===
-        String(product.id)
+        String(item.productId ?? item.id) === String((product as CartItem).productId ?? product.id) &&
+        String(item.variation_id ?? item.variationId ?? "") ===
+        String((product as CartItem).variation_id ?? (product as CartItem).variationId ?? "")
     );
 
   /* -------------------------------------------------------
@@ -552,6 +572,8 @@ function addProductToLocalCart(
 
       {
         ...product,
+        productId: (product as CartItem).productId ?? product.id,
+        variation_id: (product as CartItem).variation_id ?? (product as CartItem).variationId,
         quantity: 1,
       },
     ];
@@ -855,16 +877,11 @@ export function CartProvider({
               ) || 1
             );
 
-          const existingItem =
-            mergedCart.find(
-              (item) =>
-                String(
-                  item.id
-                ) ===
-                String(
-                  guestItem.id
-                )
-            );
+          const existingItem = mergedCart.find((item) =>
+            String(item.productId ?? item.id) === String(guestItem.productId ?? guestItem.id) &&
+            String(item.variation_id ?? item.variationId ?? "") ===
+            String(guestItem.variation_id ?? guestItem.variationId ?? "")
+          );
 
           /*
            * Product doesn't exist
@@ -1014,7 +1031,7 @@ export function CartProvider({
   ======================================================= */
 
   const addToCart = async (
-    product: ProductI
+    product: Omit<CartItem, "quantity">
   ) => {
     /* =====================================================
        GUEST
@@ -1051,9 +1068,12 @@ export function CartProvider({
      * Optimistic local update.
      */
 
+    const previousCart =
+      cartRef.current;
+
     const localCart =
       addProductToLocalCart(
-        cartRef.current,
+        previousCart,
         product
       );
 
@@ -1100,10 +1120,12 @@ export function CartProvider({
                 error
               );
 
-              /*
-               * If database fails,
-               * reload it.
-               */
+              updateCart(
+                error instanceof CartApiError &&
+                  error.cart.length > 0
+                  ? error.cart
+                  : previousCart
+              );
 
               try {
                 const databaseCart =
@@ -1120,6 +1142,8 @@ export function CartProvider({
                   reloadError
                 );
               }
+
+              throw error;
             }
           }
         );
@@ -1136,7 +1160,8 @@ export function CartProvider({
 
   const removeFromCart =
     async (
-      itemId: string | number
+      itemId: string | number,
+      variationId?: string | number
     ) => {
       /* ===================================================
          GUEST
@@ -1176,21 +1201,29 @@ export function CartProvider({
          LOGGED USER
       =================================================== */
 
-      try {
-        const updatedCart =
-          await removeProductFromDatabaseCart(
-            itemId
-          );
+      const previousCart =
+        cartRef.current;
 
-        updateCart(
-          updatedCart
-        );
-      } catch (error) {
-        console.error(
-          "Remove cart item error:",
-          error
-        );
-      }
+      const optimisticCart = previousCart.filter(
+        (item) => String(item.id) !== String(itemId)
+      );
+      updateCart(optimisticCart);
+      const operation = addQueueRef.current.catch(() => {}).then(async () => {
+        try {
+          await removeProductFromDatabaseCart(itemId, variationId);
+        } catch (error) {
+          console.error("Remove cart item error:", error);
+          updateCart(
+            error instanceof CartApiError &&
+              error.cart.length > 0
+              ? error.cart
+              : previousCart
+          );
+          throw error;
+        }
+      });
+      addQueueRef.current = operation;
+      await operation;
     };
 
   /* =======================================================
@@ -1199,15 +1232,12 @@ export function CartProvider({
 
   const increaseQuantity =
     async (
-      itemId: string | number
+      itemId: string | number,
+      variationId?: string | number
     ) => {
       const item =
         cartRef.current.find(
-          (cartItem) =>
-            String(
-              cartItem.id
-            ) ===
-            String(itemId)
+          (cartItem) => isSameCartItem(cartItem, itemId, variationId)
         );
 
       if (!item) {
@@ -1225,6 +1255,22 @@ export function CartProvider({
       const newQuantity =
         currentQuantity + 1;
 
+      const availableStock =
+        typeof item.stockQuantity === "number"
+          ? item.stockQuantity
+          : null;
+
+      if (
+        availableStock !== null &&
+        newQuantity > availableStock
+      ) {
+        throw new Error(
+          `Only ${availableStock} item${
+            availableStock === 1 ? "" : "s"
+          } available.`
+        );
+      }
+
       /* ===================================================
          GUEST
       =================================================== */
@@ -1234,11 +1280,7 @@ export function CartProvider({
       ) {
         const newCart =
           cartRef.current.map(
-            (cartItem) =>
-              String(
-                cartItem.id
-              ) ===
-              String(itemId)
+            (cartItem) => isSameCartItem(cartItem, itemId, variationId)
                 ? {
                     ...cartItem,
                     quantity:
@@ -1278,13 +1320,12 @@ export function CartProvider({
        * Optimistic update first.
        */
 
+      const previousCart =
+        cartRef.current;
+
       const optimisticCart =
-        cartRef.current.map(
-          (cartItem) =>
-            String(
-              cartItem.id
-            ) ===
-            String(itemId)
+        previousCart.map(
+          (cartItem) => isSameCartItem(cartItem, itemId, variationId)
               ? {
                   ...cartItem,
                   quantity:
@@ -1308,37 +1349,22 @@ export function CartProvider({
         optimisticCart
       );
 
-      try {
-        const updatedCart =
-          await updateDatabaseCartQuantity(
-            itemId,
-            newQuantity
-          );
-
-        updateCart(
-          updatedCart
-        );
-      } catch (error) {
-        console.error(
-          "Increase quantity error:",
-          error
-        );
-
+      const operation = addQueueRef.current.catch(() => {}).then(async () => {
         try {
-          const databaseCart =
-            await fetchUserCart();
-
+          await updateDatabaseCartQuantity(itemId, newQuantity, variationId);
+        } catch (error) {
+          console.error("Increase quantity error:", error);
           updateCart(
-            databaseCart
+            error instanceof CartApiError &&
+              error.cart.length > 0
+              ? error.cart
+              : previousCart
           );
-        } catch (
-          reloadError
-        ) {
-          console.error(
-            reloadError
-          );
+          throw error;
         }
-      }
+      });
+      addQueueRef.current = operation;
+      await operation;
     };
 
   /* =======================================================
@@ -1347,15 +1373,12 @@ export function CartProvider({
 
   const decreaseQuantity =
     async (
-      itemId: string | number
+      itemId: string | number,
+      variationId?: string | number
     ) => {
       const item =
         cartRef.current.find(
-          (cartItem) =>
-            String(
-              cartItem.id
-            ) ===
-            String(itemId)
+          (cartItem) => isSameCartItem(cartItem, itemId, variationId)
         );
 
       if (!item) {
@@ -1383,11 +1406,7 @@ export function CartProvider({
         const newCart =
           cartRef.current
             .map(
-              (cartItem) =>
-                String(
-                  cartItem.id
-                ) ===
-                String(itemId)
+              (cartItem) => isSameCartItem(cartItem, itemId, variationId)
                   ? {
                       ...cartItem,
                       quantity:
@@ -1430,7 +1449,8 @@ export function CartProvider({
         newQuantity <= 0
       ) {
         await removeFromCart(
-          itemId
+          itemId,
+          variationId
         );
 
         return;
@@ -1440,13 +1460,12 @@ export function CartProvider({
          OPTIMISTIC UPDATE
       =================================================== */
 
+      const previousCart =
+        cartRef.current;
+
       const optimisticCart =
-        cartRef.current.map(
-          (cartItem) =>
-            String(
-              cartItem.id
-            ) ===
-            String(itemId)
+        previousCart.map(
+          (cartItem) => isSameCartItem(cartItem, itemId, variationId)
               ? {
                   ...cartItem,
                   quantity:
@@ -1474,37 +1493,22 @@ export function CartProvider({
          DATABASE
       =================================================== */
 
-      try {
-        const updatedCart =
-          await updateDatabaseCartQuantity(
-            itemId,
-            newQuantity
-          );
-
-        updateCart(
-          updatedCart
-        );
-      } catch (error) {
-        console.error(
-          "Decrease quantity error:",
-          error
-        );
-
+      const operation = addQueueRef.current.catch(() => {}).then(async () => {
         try {
-          const databaseCart =
-            await fetchUserCart();
-
+          await updateDatabaseCartQuantity(itemId, newQuantity, variationId);
+        } catch (error) {
+          console.error("Decrease quantity error:", error);
           updateCart(
-            databaseCart
+            error instanceof CartApiError &&
+              error.cart.length > 0
+              ? error.cart
+              : previousCart
           );
-        } catch (
-          reloadError
-        ) {
-          console.error(
-            reloadError
-          );
+          throw error;
         }
-      }
+      });
+      addQueueRef.current = operation;
+      await operation;
     };
 
   /* =======================================================
@@ -1531,21 +1535,29 @@ export function CartProvider({
          LOGGED USER
       =================================================== */
 
-      try {
-        const updatedCart =
+      // Clearing shares the same mutation queue as add/remove/quantity updates,
+      // so it cannot race with a preceding click and overwrite newer server data.
+      const previousCart =
+        cartRef.current;
+
+      updateCart([]);
+
+      const operation = addQueueRef.current.catch(() => {}).then(async () => {
+        try {
           await clearDatabaseCart();
-
-        updateCart(
-          updatedCart
-        );
-
-        clearUserCartCache();
-      } catch (error) {
-        console.error(
-          "Clear cart error:",
-          error
-        );
-      }
+        } catch (error) {
+          console.error("Clear cart error:", error);
+          updateCart(
+            error instanceof CartApiError &&
+              error.cart.length > 0
+              ? error.cart
+              : previousCart
+          );
+          throw error;
+        }
+      });
+      addQueueRef.current = operation;
+      await operation;
     };
 
   /* =======================================================
@@ -1641,4 +1653,13 @@ export function useCart() {
   }
 
   return context;
+}
+
+function isSameCartItem(
+  item: CartItem,
+  itemId: string | number,
+  variationId?: string | number
+) {
+  return String(item.productId ?? item.id) === String(itemId) &&
+    String(item.variation_id ?? item.variationId ?? "") === String(variationId ?? "");
 }

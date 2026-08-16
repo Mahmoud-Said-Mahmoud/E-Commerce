@@ -8,4 +8,10 @@ export interface BrandI {
   count?: number;
 
   parent?: number;
+
+  image?: {
+    id?: number;
+    src?: string;
+    alt?: string;
+  };
 }

@@ -53,7 +53,13 @@ export default function NewSearch() {
 
         const data = await response.json();
 
-        setProducts(data);
+        setProducts(
+          Array.isArray(data)
+            ? data
+            : Array.isArray(data?.products)
+            ? data.products
+            : []
+        );
       } catch (error) {
         console.error(error);
         setProducts([]);
@@ -200,7 +206,7 @@ export default function NewSearch() {
             </div>
           ) : (
             <>
-              {products.products.map((product) => (
+              {products.map((product) => (
                 <Link
                   key={product.id}
                   href={`/products/detail/${product.id}`}

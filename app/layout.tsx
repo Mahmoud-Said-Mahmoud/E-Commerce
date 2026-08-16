@@ -3,7 +3,6 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
-import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { WishlistProvider } from "@/context/WishlistContext";
 import Navbar from "@/components/navbar/Navbar";
@@ -13,12 +12,8 @@ import Trend from "@/components/Trend/Trend";
 import Footer from "@/components/footer/Footer";
 
 import { CartProvider } from "@/context/CartContext";
+import { LanguageProvider } from "@/context/LanguageContext";
 import SessionProviderWrapper from "@/components/providers/SessionProvider";
-
-const geist = Geist({
-  subsets: ["latin"],
-  variable: "--font-sans",
-});
 
 const inter = localFont({
   src: "./fonts/Inter-VariableFont_opsz,wght.ttf",
@@ -41,13 +36,13 @@ export default function RootLayout({
         "h-full",
         "antialiased",
         inter.variable,
-        "font-sans",
-        geist.variable
+        "font-sans"
       )}
       suppressHydrationWarning
     >
       <body className="flex min-h-screen flex-col">
 
+       <LanguageProvider>
        <SessionProviderWrapper>
   <CartProvider>
     <WishlistProvider>
@@ -60,6 +55,7 @@ export default function RootLayout({
     </WishlistProvider>
   </CartProvider>
 </SessionProviderWrapper>
+</LanguageProvider>
 
         <Footer />
 

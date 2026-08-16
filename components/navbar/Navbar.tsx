@@ -35,6 +35,7 @@ import {
 import NewSearch from "../search/search";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 /* =========================================================
    TYPES
@@ -46,16 +47,6 @@ interface Category {
   slug: string;
   parent: number;
   children?: Category[];
-}
-
-interface CartItem {
-  id: string;
-  productId: number;
-  variationId?: number;
-  name: string;
-  price: string;
-  quantity: number;
-  attributes: Record<string, string>;
 }
 
 /* =========================================================
@@ -129,49 +120,6 @@ function buildCategoryTree(categories: Category[]) {
 }
 
 /* =========================================================
-   READ CART FROM LOCAL STORAGE
-========================================================= */
-
-function getCartFromStorage(): CartItem[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    const storedCart = localStorage.getItem("cart");
-
-    if (!storedCart) {
-      return [];
-    }
-
-    const parsedCart = JSON.parse(storedCart);
-
-    if (!Array.isArray(parsedCart)) {
-      return [];
-    }
-
-    return parsedCart;
-  } catch {
-    return [];
-  }
-}
-
-/* =========================================================
-   GET CART TOTAL
-========================================================= */
-
-function getCartItemsCount(cart: CartItem[]) {
-  return cart.reduce((total, item) => {
-    const quantity = Number(item?.quantity || 0);
-
-    return (
-      total +
-      (Number.isFinite(quantity) ? quantity : 0)
-    );
-  }, 0);
-}
-
-/* =========================================================
    NAVBAR
 ========================================================= */
 
@@ -189,8 +137,6 @@ export default function Navbar() {
      GENERAL STATES
   ======================================================= */
 
-  const [isEnglish, setIsEnglish] = useState(true);
-
   const [authMode, setAuthMode] =
     useState<"login" | "register">("login");
 
@@ -204,119 +150,18 @@ export default function Navbar() {
      CART CONTEXT
   ======================================================= */
 
-  const { cart } = useCart();
+  const { cartCount } = useCart();
 
   /* =======================================================
      WISHLIST CONTEXT
   ======================================================= */
 
   const { wishlist } = useWishlist();
+  const { isArabic, toggleLocale, t } = useLanguage();
 
   /* =======================================================
      CART COUNT
   ======================================================= */
-
-  const [cartCount, setCartCount] = useState(0);
-
-  /* =======================================================
-     CART SYNC
-  ======================================================= */
-
-  useEffect(() => {
-    function updateCartCount(
-      currentCart: CartItem[]
-    ) {
-      setCartCount(
-        getCartItemsCount(currentCart)
-      );
-    }
-
-    /* Initial cart */
-
-    const initialCart =
-      getCartFromStorage();
-
-    updateCartCount(initialCart);
-
-    /* Same tab */
-
-    function handleCartUpdated(event: Event) {
-      const customEvent =
-        event as CustomEvent<{
-          cart?: CartItem[];
-        }>;
-
-      if (
-        Array.isArray(
-          customEvent.detail?.cart
-        )
-      ) {
-        updateCartCount(
-          customEvent.detail.cart
-        );
-
-        return;
-      }
-
-      const latestCart =
-        getCartFromStorage();
-
-      updateCartCount(latestCart);
-    }
-
-    /* Cross tab */
-
-    function handleStorage(
-      event: StorageEvent
-    ) {
-      if (event.key !== "cart") {
-        return;
-      }
-
-      const latestCart =
-        getCartFromStorage();
-
-      updateCartCount(latestCart);
-    }
-
-    window.addEventListener(
-      "cart-updated",
-      handleCartUpdated
-    );
-
-    window.addEventListener(
-      "storage",
-      handleStorage
-    );
-
-    return () => {
-      window.removeEventListener(
-        "cart-updated",
-        handleCartUpdated
-      );
-
-      window.removeEventListener(
-        "storage",
-        handleStorage
-      );
-    };
-  }, []);
-
-  /* =======================================================
-     SYNC WITH CART CONTEXT
-  ======================================================= */
-
-  useEffect(() => {
-    if (!Array.isArray(cart)) {
-      return;
-    }
-
-    setCartCount(
-      getCartItemsCount(
-        cart as CartItem[]
-      )
-    );
-  }, [cart]);
 
   /* =======================================================
      FETCH CATEGORIES
@@ -379,7 +224,7 @@ export default function Navbar() {
   ======================================================= */
 
   const userName =
-    session?.user?.name || "Account";
+    session?.user?.name || t("nav.account");
 
   /* =======================================================
      LOGOUT
@@ -483,7 +328,7 @@ export default function Navbar() {
                       <MapPinHouse className="size-4 text-[#0497D8]" />
 
                       <span className="hidden lg:inline">
-                        Store Location
+                        {t("nav.storeLocation")}
                       </span>
                     </Button>
                   }
@@ -492,12 +337,11 @@ export default function Navbar() {
                 <DialogContent className="w-[95%] max-w-[650px]">
                   <DialogHeader>
                     <DialogTitle>
-                      Store Location
+                      {t("nav.storeDialogTitle")}
                     </DialogTitle>
 
                     <DialogDescription>
-                      Find our store location on
-                      Google Maps.
+                      {t("nav.storeDialogDescription")}
                     </DialogDescription>
                   </DialogHeader>
 
@@ -530,7 +374,7 @@ export default function Navbar() {
                         );
                       }}
                     >
-                      Go to Store
+                      {t("nav.goToStore")}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -567,19 +411,21 @@ export default function Navbar() {
               <div className="flex shrink-0 items-center gap-2">
                 <Switch
                   id="lang"
-                  checked={isEnglish}
-                  onCheckedChange={setIsEnglish}
+                  checked={!isArabic}
+                  onCheckedChange={toggleLocale}
                 />
 
-                {isEnglish && (
-                  <Image
-                    src="/Image/us-flag.webp"
-                    width={20}
-                    height={20}
-                    alt="English"
-                    className="object-contain"
-                  />
-                )}
+                <Image
+                  src={isArabic ? "/Image/ar-flag.webp" : "/Image/us-flag.webp"}
+                  width={20}
+                  height={20}
+                  alt={isArabic ? "Arabic" : "English"}
+                  className="object-contain"
+                />
+
+                <span className="hidden text-xs font-medium text-gray-600 md:inline">
+                  {t("nav.languageLabel")}
+                </span>
               </div>
 
               {/* =================================================
@@ -588,7 +434,7 @@ export default function Navbar() {
 
               <Link
                 href="/wishlist"
-                aria-label={`Wishlist${
+                aria-label={`${t("nav.wishlist")}${
                   wishlist.length > 0
                     ? ` (${wishlist.length})`
                     : ""
@@ -640,7 +486,7 @@ export default function Navbar() {
 
               <Link
                 href="/cart"
-                aria-label="Shopping Cart"
+                aria-label={t("nav.cart")}
                 className="
                   relative
                   flex
@@ -812,7 +658,7 @@ export default function Navbar() {
                       <User className="size-4" />
 
                       <span>
-                        My Account
+                        {t("nav.myAccount")}
                       </span>
                     </Link>
 
@@ -837,7 +683,7 @@ export default function Navbar() {
                       <Package className="size-4" />
 
                       <span>
-                        My Orders
+                        {t("nav.myOrders")}
                       </span>
                     </Link>
 
@@ -864,7 +710,7 @@ export default function Navbar() {
                         <Heart className="size-4" />
 
                         <span>
-                          Wishlist
+                          {t("nav.wishlist")}
                         </span>
                       </div>
 
@@ -921,7 +767,7 @@ export default function Navbar() {
                       <LogOut className="size-4" />
 
                       <span>
-                        Logout
+                        {t("nav.logout")}
                       </span>
                     </button>
                   </div>
@@ -952,7 +798,7 @@ export default function Navbar() {
                         <User className="size-4" />
 
                         <span className="hidden lg:inline">
-                          Sign In
+                          {t("nav.signIn")}
                         </span>
                       </Button>
                     }
@@ -967,12 +813,11 @@ export default function Navbar() {
                       <>
                         <DialogHeader>
                           <DialogTitle>
-                            Welcome Back
+                            {t("nav.welcomeBack")}
                           </DialogTitle>
 
                           <DialogDescription>
-                            Sign in to your
-                            I-Technology account
+                            {t("nav.signInDescription")}
                           </DialogDescription>
                         </DialogHeader>
 
@@ -980,7 +825,7 @@ export default function Navbar() {
 
                         <DialogFooter className="flex-col gap-2 sm:flex-col">
                           <p className="text-center text-sm text-gray-500">
-                            Don't have an account?
+                            {t("nav.noAccount")}
                           </p>
 
                           <Button
@@ -993,7 +838,7 @@ export default function Navbar() {
                               )
                             }
                           >
-                            Create Account
+                            {t("nav.createAccount")}
                           </Button>
                         </DialogFooter>
                       </>
@@ -1005,12 +850,11 @@ export default function Navbar() {
                       <>
                         <DialogHeader>
                           <DialogTitle>
-                            Create Account
+                            {t("nav.createAccount")}
                           </DialogTitle>
 
                           <DialogDescription>
-                            Create your
-                            I-Technology account
+                            {t("nav.createAccountDescription")}
                           </DialogDescription>
                         </DialogHeader>
 
@@ -1018,8 +862,7 @@ export default function Navbar() {
 
                         <DialogFooter className="flex-col gap-2 sm:flex-col">
                           <p className="text-center text-sm text-gray-500">
-                            Already have an
-                            account?
+                            {t("nav.haveAccount")}
                           </p>
 
                           <Button
@@ -1032,7 +875,7 @@ export default function Navbar() {
                               )
                             }
                           >
-                            Sign In
+                            {t("nav.signIn")}
                           </Button>
                         </DialogFooter>
                       </>
@@ -1092,7 +935,7 @@ export default function Navbar() {
                 "
               >
                 <span className="text-xs text-gray-400">
-                  Loading categories...
+                  {t("nav.loadingCategories")}
                 </span>
               </div>
             ) : (

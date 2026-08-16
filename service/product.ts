@@ -42,50 +42,56 @@ export interface ProductApiResponse<T = ProductI> {
 
 export async function productApi(
   page: number = 1,
-  filters: ProductFilters = {}
+  filters: ProductFilters | number = {}
 ): Promise<ProductApiResponse<ProductI>> {
   const params = new URLSearchParams();
+  const normalizedFilters: ProductFilters =
+    typeof filters === "number"
+      ? { category: String(page) }
+      : filters;
+  const normalizedPage =
+    typeof filters === "number" ? filters : page;
 
   /* =======================================================
      PAGINATION
   ======================================================= */
 
-  params.set("page", page.toString());
+  params.set("page", normalizedPage.toString());
   params.set("per_page", "24");
 
   /* =======================================================
      CATEGORY
   ======================================================= */
 
-  if (filters.category) {
-    params.set("category", filters.category);
+  if (normalizedFilters.category) {
+    params.set("category", normalizedFilters.category);
   }
 
   /* =======================================================
      BRAND
   ======================================================= */
 
-  if (filters.brand) {
-    params.set("brand", filters.brand);
+  if (normalizedFilters.brand) {
+    params.set("brand", normalizedFilters.brand);
   }
 
   /* =======================================================
      PRICE
   ======================================================= */
 
-  if (filters.minPrice) {
-    params.set("min_price", filters.minPrice);
+  if (normalizedFilters.minPrice) {
+    params.set("min_price", normalizedFilters.minPrice);
   }
 
-  if (filters.maxPrice) {
-    params.set("max_price", filters.maxPrice);
+  if (normalizedFilters.maxPrice) {
+    params.set("max_price", normalizedFilters.maxPrice);
   }
 
   /* =======================================================
      STOCK
   ======================================================= */
 
-  if (filters.stock) {
+  if (normalizedFilters.stock) {
     params.set("stock_status", "instock");
   }
 
@@ -93,16 +99,16 @@ export async function productApi(
      SORT
   ======================================================= */
 
-  if (filters.sort && filters.sort !== "relevance") {
-    params.set("sort", filters.sort);
+  if (normalizedFilters.sort && normalizedFilters.sort !== "relevance") {
+    params.set("sort", normalizedFilters.sort);
   }
 
   /* =======================================================
      SEARCH
   ======================================================= */
 
-  if (filters.search) {
-    params.set("search", filters.search);
+  if (normalizedFilters.search) {
+    params.set("search", normalizedFilters.search);
   }
 
   /* =======================================================

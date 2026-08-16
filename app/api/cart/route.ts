@@ -1,23 +1,32 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import {
+  StockValidationError,
+  cartItemKey,
+  normalizeCartItems,
+  validateCartItemStock,
+  wooCommerceRequest,
+  type CartInputItem,
+} from "@/lib/woocommerce";
 
 /* =========================================================
    WOOCOMMERCE CONFIG
 ========================================================= */
 
-const WC_URL = process.env.WC_URL;
-const WC_KEY = process.env.WC_KEY;
-const WC_SECRET = process.env.WC_SECRET;
-
-const CART_META_KEY = "_app_cart";
+// Meta keys prefixed with an underscore are protected by WordPress and may be
+// omitted from WooCommerce REST writes. Keep customer carts under a public key.
+const CART_META_KEY = "app_cart";
+const LEGACY_CART_META_KEY = "_app_cart";
 
 /* =========================================================
    TYPES
 ========================================================= */
 
-interface CartItem {
+interface CartItem extends CartInputItem {
   id: number | string;
   productId?: number | string;
+  variation_id?: number | string;
+  variationId?: number | string;
   name: string;
   price?: string | number;
   quantity: number;
@@ -36,66 +45,9 @@ interface WooMeta {
   value: unknown;
 }
 
-/* =========================================================
-   WOOCOMMERCE REQUEST
-========================================================= */
-
-async function wooCommerceRequest(
-  endpoint: string,
-  options: RequestInit = {}
-) {
-  if (!WC_URL || !WC_KEY || !WC_SECRET) {
-    throw new Error(
-      "WooCommerce environment variables are missing."
-    );
-  }
-
-  const credentials = Buffer.from(
-    `${WC_KEY}:${WC_SECRET}`
-  ).toString("base64");
-
-  const response = await fetch(
-    `${WC_URL}/wp-json/wc/v3${endpoint}`,
-    {
-      ...options,
-
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${credentials}`,
-        ...(options.headers || {}),
-      },
-
-      /*
-       * Cart must always be fresh.
-       */
-      cache: "no-store",
-    }
-  );
-
-  const text = await response.text();
-
-  let data: any = null;
-
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = null;
-  }
-
-  if (!response.ok) {
-    console.error(
-      "WooCommerce API Error:",
-      response.status,
-      data
-    );
-
-    throw new Error(
-      data?.message ||
-        `WooCommerce request failed (${response.status}).`
-    );
-  }
-
-  return data;
+interface WooCustomer {
+  id: number;
+  meta_data?: WooMeta[];
 }
 
 /* =========================================================
@@ -105,31 +57,7 @@ async function wooCommerceRequest(
 function normalizeCart(
   cart: unknown
 ): CartItem[] {
-  if (!Array.isArray(cart)) {
-    return [];
-  }
-
-  return cart
-    .filter(
-      (item) =>
-        item &&
-        typeof item === "object"
-    )
-    .map((item) => {
-      const cartItem =
-        item as CartItem;
-
-      return {
-        ...cartItem,
-
-        quantity: Math.max(
-          1,
-          Number(
-            cartItem.quantity
-          ) || 1
-        ),
-      };
-    });
+  return normalizeCartItems(cart) as CartItem[];
 }
 
 /* =========================================================
@@ -140,7 +68,7 @@ async function getWooCustomer(
   email: string
 ) {
   const customers =
-    await wooCommerceRequest(
+    await wooCommerceRequest<WooCustomer[]>(
       `/customers?email=${encodeURIComponent(
         email
       )}&per_page=1`
@@ -163,7 +91,7 @@ async function getWooCustomer(
 ========================================================= */
 
 function getCartMeta(
-  customer: any
+  customer: WooCustomer
 ): WooMeta | null {
   const metaData: WooMeta[] =
     Array.isArray(
@@ -178,7 +106,7 @@ function getCartMeta(
         item.key === CART_META_KEY
     );
 
-  return meta || null;
+  return meta || metaData.find((item) => item.key === LEGACY_CART_META_KEY) || null;
 }
 
 /* =========================================================
@@ -186,7 +114,7 @@ function getCartMeta(
 ========================================================= */
 
 function getCustomerCart(
-  customer: any
+  customer: WooCustomer
 ): CartItem[] {
   const cartMeta =
     getCartMeta(customer);
@@ -227,14 +155,14 @@ function getCustomerCart(
 ========================================================= */
 
 async function saveCustomerCart(
-  customer: any,
+  customer: WooCustomer,
   cart: CartItem[]
 ) {
   const normalizedCart =
     normalizeCart(cart);
 
-  const existingMeta =
-    getCartMeta(customer);
+  const existingMeta = (Array.isArray(customer?.meta_data) ? customer.meta_data : [])
+    .find((item: WooMeta) => item.key === CART_META_KEY) as WooMeta | undefined;
 
   /*
    * IMPORTANT:
@@ -264,7 +192,7 @@ async function saveCustomerCart(
       };
 
   const updatedCustomer =
-    await wooCommerceRequest(
+    await wooCommerceRequest<WooCustomer>(
       `/customers/${customer.id}`,
       {
         method: "PUT",
@@ -281,10 +209,13 @@ async function saveCustomerCart(
    * actually saved.
    */
 
-  const savedCart =
-    getCustomerCart(
-      updatedCustomer
+  const savedCart = getCustomerCart(updatedCustomer);
+
+  if (JSON.stringify(savedCart) !== JSON.stringify(normalizedCart)) {
+    throw new Error(
+      "WooCommerce did not persist the customer cart metadata."
     );
+  }
 
   return savedCart;
 }
@@ -435,14 +366,12 @@ export async function POST(
      * Find existing product.
      */
 
-    const existingIndex =
-      currentCart.findIndex(
-        (item) =>
-          String(item.id) ===
-          String(product.id)
-      );
+    const existingIndex = currentCart.findIndex(
+      (item) => cartItemKey(item) === cartItemKey(product)
+    );
 
     let updatedCart: CartItem[];
+    let requestedQuantity = quantity;
 
     /* =====================================================
        EXISTING PRODUCT
@@ -451,6 +380,18 @@ export async function POST(
     if (
       existingIndex !== -1
     ) {
+      requestedQuantity =
+        Math.max(
+          1,
+          Number(currentCart[existingIndex].quantity) || 1
+        ) + quantity;
+
+      const validatedItem =
+        await validateCartItemStock(
+          product,
+          requestedQuantity
+        );
+
       updatedCart =
         currentCart.map(
           (item, index) => {
@@ -463,14 +404,9 @@ export async function POST(
 
             return {
               ...item,
-
+              ...validatedItem,
               quantity:
-                Math.max(
-                  1,
-                  Number(
-                    item.quantity
-                  ) || 1
-                ) + quantity,
+                requestedQuantity,
             };
           }
         );
@@ -481,11 +417,19 @@ export async function POST(
     ===================================================== */
 
     else {
+      const validatedItem =
+        await validateCartItemStock(
+          product,
+          requestedQuantity
+        );
+
       updatedCart = [
         ...currentCart,
         {
           ...product,
-          quantity,
+          ...validatedItem,
+          quantity:
+            requestedQuantity,
         },
       ];
     }
@@ -518,6 +462,21 @@ export async function POST(
       "POST /api/cart error:",
       error
     );
+
+    if (error instanceof StockValidationError) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: error.message,
+          availableStock: error.availableStock,
+          productName: error.productName,
+          requestedQuantity: error.requestedQuantity,
+        },
+        {
+          status: error.status,
+        }
+      );
+    }
 
     return NextResponse.json(
       {
@@ -569,8 +528,8 @@ export async function PATCH(
     const body =
       await request.json();
 
-    const productId =
-      body?.productId;
+    const productId = body?.productId;
+    const variationId = body?.variationId;
 
     const quantity =
       Number(body?.quantity);
@@ -620,11 +579,13 @@ export async function PATCH(
       );
 
     const productExists =
-      currentCart.some(
-        (item) =>
-          String(item.id) ===
-          String(productId)
-      );
+      currentCart.some((item) => cartItemKey(item) === cartItemKey({
+        id: productId,
+        productId,
+        variation_id: variationId,
+        name: "",
+        quantity: 1,
+      }));
 
     if (!productExists) {
       return NextResponse.json(
@@ -639,13 +600,33 @@ export async function PATCH(
       );
     }
 
+    const currentItem =
+      currentCart.find((item) => cartItemKey(item) === cartItemKey({
+        id: productId,
+        productId,
+        variation_id: variationId,
+        name: "",
+        quantity: 1,
+      }));
+
+    const validatedItem =
+      await validateCartItemStock(
+        currentItem || {
+          id: productId,
+          productId,
+          variation_id: variationId,
+          name: "",
+        },
+        quantity
+      );
+
     const updatedCart =
       currentCart.map(
         (item) =>
-          String(item.id) ===
-          String(productId)
+          cartItemKey(item) === cartItemKey({ id: productId, productId, variation_id: variationId, name: "", quantity: 1 })
             ? {
                 ...item,
+                ...validatedItem,
                 quantity,
               }
             : item
@@ -675,6 +656,21 @@ export async function PATCH(
       "PATCH /api/cart error:",
       error
     );
+
+    if (error instanceof StockValidationError) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: error.message,
+          availableStock: error.availableStock,
+          productName: error.productName,
+          requestedQuantity: error.requestedQuantity,
+        },
+        {
+          status: error.status,
+        }
+      );
+    }
 
     return NextResponse.json(
       {
@@ -730,6 +726,7 @@ export async function DELETE(
 
     let body: {
       productId?: string | number;
+      variationId?: string | number;
       clear?: boolean;
     } = {};
 
@@ -796,12 +793,14 @@ export async function DELETE(
       );
 
     const updatedCart =
-      currentCart.filter(
-        (item) =>
-          String(item.id) !==
-          String(
-            body.productId
-          )
+      currentCart.filter((item) =>
+        cartItemKey(item) !== cartItemKey({
+          id: body.productId!,
+          productId: body.productId!,
+          variation_id: body.variationId,
+          name: "",
+          quantity: 1,
+        })
       );
 
     const savedCart =

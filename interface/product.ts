@@ -66,4 +66,6 @@ export interface ProductI {
   attributes?: ProductAttribute[];
 
   variations?: number[];
+
+  date_created?: string;
 }

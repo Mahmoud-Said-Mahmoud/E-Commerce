@@ -251,7 +251,7 @@ export default function CartPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            removeFromCart(item.id)
+                            removeFromCart(item.productId ?? item.id, item.variation_id ?? item.variationId)
                           }
                           className="
                             shrink-0
@@ -298,7 +298,7 @@ export default function CartPage() {
                           <button
                             type="button"
                             onClick={() =>
-                              decreaseQuantity(item.id)
+                              decreaseQuantity(item.productId ?? item.id, item.variation_id ?? item.variationId)
                             }
                             disabled={item.quantity <= 1}
                             className="
@@ -329,7 +329,7 @@ export default function CartPage() {
                           <button
                             type="button"
                             onClick={() =>
-                              increaseQuantity(item.id)
+                              increaseQuantity(item.productId ?? item.id, item.variation_id ?? item.variationId)
                             }
                             className="
                               flex

@@ -8,6 +8,7 @@ import {
   ShoppingCart,
   Zap,
 } from "lucide-react";
+import { useCart } from "@/context/CartContext";
 
 /* =========================================================
    TYPES
@@ -58,17 +59,7 @@ type ProductActionProduct = {
 type ProductActionsProps = {
   product: ProductActionProduct;
   variations?: ProductVariation[];
-};
-
-export type CartItem = {
-  id: string;
-  productId: number;
-  variationId?: number;
-  name: string;
-  price: string;
-  quantity: number;
-  attributes: Record<string, string>;
-  image?: string;
+  disabled?: boolean;
 };
 
 /* =========================================================
@@ -102,66 +93,13 @@ function formatAttributeValue(value: string) {
 }
 
 /* =========================================================
-   GET CART
-========================================================= */
-
-function getCart(): CartItem[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    const cart = localStorage.getItem("cart");
-
-    if (!cart) {
-      return [];
-    }
-
-    const parsed = JSON.parse(cart);
-
-    return Array.isArray(parsed)
-      ? parsed
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-/* =========================================================
-   SAVE CART
-========================================================= */
-
-function saveCart(cart: CartItem[]) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  localStorage.setItem(
-    "cart",
-    JSON.stringify(cart)
-  );
-
-  /*
-   * IMPORTANT:
-   *
-   * The native "storage" event does NOT fire
-   * in the same browser tab that changed localStorage.
-   *
-   * So we dispatch our own event.
-   */
-
-  window.dispatchEvent(
-    new Event("cart-updated")
-  );
-}
-
-/* =========================================================
    COMPONENT
 ========================================================= */
 
 export default function ProductActions({
   product,
   variations = [],
+  disabled = false,
 }: ProductActionsProps) {
   /* =======================================================
      STATE
@@ -186,13 +124,7 @@ export default function ProductActions({
   const [message, setMessage] =
     React.useState("");
 
-  /*
-   * Used to refresh the quantity already
-   * stored in localStorage.
-   */
-  const [cart, setCart] = React.useState<
-    CartItem[]
-  >([]);
+  const { cart, addToCart: addCartItem } = useCart();
 
   /* =======================================================
      PRODUCT TYPE
@@ -210,61 +142,6 @@ export default function ProductActions({
     product.image ||
     product.images?.[0]?.src ||
     "";
-
-  /* =======================================================
-     LOAD CART
-  ======================================================= */
-
-  React.useEffect(() => {
-    function syncCart() {
-      setCart(getCart());
-    }
-
-    /*
-     * Initial cart
-     */
-    syncCart();
-
-    /*
-     * Same tab
-     */
-    function handleCartUpdated() {
-      syncCart();
-    }
-
-    /*
-     * Other tab
-     */
-    function handleStorage(
-      event: StorageEvent
-    ) {
-      if (event.key === "cart") {
-        syncCart();
-      }
-    }
-
-    window.addEventListener(
-      "cart-updated",
-      handleCartUpdated
-    );
-
-    window.addEventListener(
-      "storage",
-      handleStorage
-    );
-
-    return () => {
-      window.removeEventListener(
-        "cart-updated",
-        handleCartUpdated
-      );
-
-      window.removeEventListener(
-        "storage",
-        handleStorage
-      );
-    };
-  }, []);
 
   /* =======================================================
      BUILD AVAILABLE ATTRIBUTES FROM VARIATIONS
@@ -434,17 +311,14 @@ export default function ProductActions({
   const variationId =
     selectedVariation?.id;
 
-  const cartId = variationId
-    ? `${product.id}-${variationId}`
-    : `${product.id}`;
-
   /* =======================================================
      CURRENT CART QUANTITY
   ======================================================= */
 
   const currentCartQuantity =
-    cart.find(
-      (item) => item.id === cartId
+    cart.find((item) =>
+      String(item.productId ?? item.id) === String(product.id) &&
+      String(item.variation_id ?? item.variationId ?? "") === String(variationId ?? "")
     )?.quantity || 0;
 
   /* =======================================================
@@ -544,6 +418,7 @@ export default function ProductActions({
   ======================================================= */
 
   const canAddToCart =
+    !disabled &&
     isInStock &&
     variationInStock &&
     hasAvailableStock &&
@@ -630,7 +505,7 @@ export default function ProductActions({
      ADD TO CART
   ======================================================= */
 
-  function addToCart() {
+  async function addToCart() {
     /* -------------------------------------------------------
        VALIDATION
     ------------------------------------------------------- */
@@ -706,30 +581,12 @@ export default function ProductActions({
          GET CURRENT CART
       ----------------------------------------------------- */
 
-      const currentCart = getCart();
-
-      /* -----------------------------------------------------
-         FIND EXISTING ITEM
-      ----------------------------------------------------- */
-
-      const existingIndex =
-        currentCart.findIndex(
-          (item) =>
-            item.id === cartId
-        );
-
-      /* -----------------------------------------------------
-         CURRENT QUANTITY IN CART
-      ----------------------------------------------------- */
-
-      const existingQuantity =
-        existingIndex !== -1
-          ? Number(
-              currentCart[
-                existingIndex
-              ].quantity || 0
-            )
-          : 0;
+      const existingQuantity = Number(
+        cart.find((item) =>
+          String(item.productId ?? item.id) === String(product.id) &&
+          String(item.variation_id ?? item.variationId ?? "") === String(variationId ?? "")
+        )?.quantity || 0
+      );
 
       /* -----------------------------------------------------
          FINAL QUANTITY
@@ -767,76 +624,36 @@ export default function ProductActions({
         return;
       }
 
-      /* -----------------------------------------------------
-         UPDATE EXISTING ITEM
-      ----------------------------------------------------- */
+      const productForCart: Parameters<typeof addCartItem>[0] = {
+        id: product.id,
+        productId: product.id,
+        variationId,
+        name: product.name,
+        slug: "",
+        price: currentPrice,
+        regular_price: currentPrice,
+        sale_price: "",
+        on_sale: false,
+        stock_status: product.stock_status === "outofstock" ? "outofstock" : "instock",
+        stockQuantity: availableStock,
+        stockStatus: selectedVariation?.stock_status || product.stock_status || "instock",
+        manageStock: hasStockLimit,
+        purchasable: true,
+        images: product.images?.map((image, index) => ({
+          id: image.id ?? index,
+          src: image.src ?? "",
+          alt: image.alt,
+        })) || (productImage ? [{ id: 0, src: productImage }] : []),
+        categories: [],
+        brands: [],
+        attributes: selectedAttributes,
+        image: productImage,
+      };
 
-      if (existingIndex !== -1) {
-        currentCart[
-          existingIndex
-        ].quantity = finalQuantity;
-
-        /*
-         * Update price in case the variation
-         * price changed.
-         */
-
-        currentCart[
-          existingIndex
-        ].price = currentPrice;
-
-        /*
-         * Update attributes as well.
-         */
-
-        currentCart[
-          existingIndex
-        ].attributes =
-          selectedAttributes;
+      // CartContext owns both guest storage and authenticated persistence.
+      for (let index = 0; index < quantity; index += 1) {
+        await addCartItem(productForCart);
       }
-
-      /* -----------------------------------------------------
-         ADD NEW ITEM
-      ----------------------------------------------------- */
-
-      else {
-        const newItem: CartItem = {
-          id: cartId,
-
-          productId:
-            product.id,
-
-          variationId,
-
-          name:
-            product.name,
-
-          price:
-            currentPrice,
-
-          quantity,
-
-          attributes:
-            selectedAttributes,
-
-          image:
-            productImage,
-        };
-
-        currentCart.push(newItem);
-      }
-
-      /* -----------------------------------------------------
-         SAVE CART
-      ----------------------------------------------------- */
-
-      saveCart(currentCart);
-
-      /*
-       * Update local state immediately.
-       */
-
-      setCart(currentCart);
 
       /* -----------------------------------------------------
          UI
@@ -863,7 +680,9 @@ export default function ProductActions({
       );
 
       setMessage(
-        "Something went wrong. Please try again."
+        error instanceof Error
+          ? error.message
+          : "Something went wrong. Please try again."
       );
     } finally {
       setAdding(false);

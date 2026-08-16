@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
   ChevronLeft,
@@ -31,6 +31,14 @@ interface FiltersResponse {
 }
 
 export default function SearchPage() {
+  return (
+    <Suspense fallback={<SearchPageSkeleton />}>
+      <SearchPageContent />
+    </Suspense>
+  );
+}
+
+function SearchPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -78,7 +86,7 @@ export default function SearchPage() {
     Category[]
   >([]);
 
-  const [brands, setBrands] = useState<Brand[]>(
+  const [brands, setBrands] = useState<BrandI[]>(
     []
   );
 
@@ -752,7 +760,7 @@ const [inStock, setInStock] = useState(false);
 
 interface FilterProps {
   categories: Category[];
-  brands: Brand[];
+  brands: BrandI[];
 
   selectedCategories: string[];
   selectedBrands: string[];
@@ -1322,5 +1330,15 @@ function ProductSkeleton() {
       ))}
 
     </div>
+  );
+}
+
+function SearchPageSkeleton() {
+  return (
+    <main className="min-h-screen bg-gray-50 px-4 py-8">
+      <div className="mx-auto max-w-7xl">
+        <ProductSkeleton />
+      </div>
+    </main>
   );
 }

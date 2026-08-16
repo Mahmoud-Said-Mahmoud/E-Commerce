@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   useEffect,
   useMemo,
+  Suspense,
   useState,
   type ChangeEvent,
   type MouseEvent,
@@ -95,6 +96,14 @@ interface FilterProps {
 ========================================================= */
 
 export default function ProductsPage() {
+  return (
+    <Suspense fallback={<ProductsPageSkeleton />}>
+      <ProductsPageContent />
+    </Suspense>
+  );
+}
+
+function ProductsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -2322,4 +2331,14 @@ function buildPageUrl(
   );
 
   return `/products?${params.toString()}`;
+}
+
+function ProductsPageSkeleton() {
+  return (
+    <main className="min-h-screen bg-gray-50 px-4 py-8">
+      <div className="mx-auto max-w-7xl">
+        <ProductSkeleton />
+      </div>
+    </main>
+  );
 }
